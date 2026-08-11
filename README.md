@@ -40,7 +40,7 @@ Install Homogenous globally to launch `homogenous` from any project directory:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/homogenous.git
+git clone https://github.com/CODExGAMERZ/homogenous.git
 cd homogenous
 
 # 2. Install dependencies & build
