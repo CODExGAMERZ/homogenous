@@ -12,7 +12,8 @@
     "dist",
     "skills",
     ".toolrc.example.yaml",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "dev": "tsx bin/homogenous.ts chat",
@@ -30,7 +31,7 @@
     "anthropic",
     "mcp"
   ],
-  "author": "",
+  "author": "CODExGAMERZ",
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.114.0",
