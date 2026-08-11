@@ -1,0 +1,32 @@
+# Homogenous Configuration Example (.toolrc.example.yaml)
+# Copy this file to .toolrc.yaml in your project directory or ~/.homogenous/.toolrc.yaml globally.
+
+defaultModel: anthropic/claude-3-5-sonnet-20241022
+compactionThreshold: 0.70
+maxSessionCostUSD: 10.00
+keepRecentTurns: 4
+fullRewriteThreshold: 0.40
+toolOutputTokenCap: 4000
+
+# Dynamic Task Routing Table
+routing:
+  fileSearch: ollama/qwen2.5-coder:3b
+  lintSummary: ollama/qwen2.5-coder:3b
+  compaction: groq/llama-3.1-8b-instant
+  embedding: ollama/nomic-embed-text
+  complexEdit: anthropic/claude-3-5-sonnet-20241022
+  planning: anthropic/claude-3-5-sonnet-20241022
+
+# API Key Credentials (Optional: can also be set via Environment Variables)
+apiKeys:
+  anthropic: "sk-ant-..."
+  openai: "sk-proj-..."
+  groq: "gsk_..."
+
+# Provider Fallback Sequence
+fallbackOrder:
+  - ollama
+  - lmstudio
+  - groq
+  - openai
+  - anthropic

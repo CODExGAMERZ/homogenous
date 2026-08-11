@@ -1,0 +1,91 @@
+import fs from "node:fs";
+import path from "node:path";
+import yaml from "yaml";
+import { resolvePath } from "../platform/paths.js";
+
+export interface SkillMetadata {
+  name: string;
+  description: string;
+  version?: string;
+  triggers?: {
+    keywords?: string[];
+    fileTypes?: string[];
+  };
+  requiresTools?: string[];
+}
+
+export interface LoadedSkill {
+  metadata: SkillMetadata;
+  body: string;
+  folderPath: string;
+}
+
+export class SkillLoader {
+  /**
+   * Parses SKILL.md YAML frontmatter and body.
+   */
+  public static parseSkillFile(filePath: string): LoadedSkill | null {
+    if (!fs.existsSync(filePath)) return null;
+
+    let content = "";
+    try {
+      content = fs.readFileSync(filePath, "utf-8");
+    } catch (err: any) {
+      if (err?.code === "EBUSY") {
+        try {
+          content = fs.readFileSync(filePath, "utf-8");
+        } catch {
+          return null;
+        }
+      } else {
+        return null;
+      }
+    }
+
+    const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+
+    if (!fmMatch) {
+      return null;
+    }
+
+    try {
+      const rawYaml = fmMatch[1];
+      const body = fmMatch[2].trim();
+      const metadata = yaml.parse(rawYaml) as SkillMetadata;
+
+      if (!metadata.name || !metadata.description) {
+        return null;
+      }
+
+      return {
+        metadata,
+        body,
+        folderPath: path.dirname(filePath),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Scans a directory for subfolders containing SKILL.md.
+   */
+  public static scanSkillsDirectory(dirPath: string): LoadedSkill[] {
+    if (!fs.existsSync(dirPath)) return [];
+
+    const skills: LoadedSkill[] = [];
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const skillFilePath = resolvePath(dirPath, entry.name, "SKILL.md");
+        const loaded = SkillLoader.parseSkillFile(skillFilePath);
+        if (loaded) {
+          skills.push(loaded);
+        }
+      }
+    }
+
+    return skills;
+  }
+}
