@@ -7,6 +7,8 @@ import type { InferenceProvider } from "../inference/InferenceProvider.js";
 import { execCommand } from "../platform/shell.js";
 import { HOMOGENOUS_BANNER } from "./ui/LogoBanner.js";
 
+import { McpClientManager } from "../mcp/McpClientManager.js";
+
 export interface ReplOptions {
   model?: string;
 }
@@ -14,6 +16,29 @@ export interface ReplOptions {
 export async function runRepl(options: ReplOptions = {}): Promise<void> {
   const registry = ProviderRegistry.getInstance();
   await registry.detectLocalProviders();
+
+  // Register clean shutdown handlers for child processes
+  const cleanup = async () => {
+    try {
+      await McpClientManager.getInstance().closeAll();
+    } catch {
+      // Ignore cleanup errors
+    }
+  };
+
+  process.once("SIGINT", async () => {
+    await cleanup();
+    process.exit(0);
+  });
+
+  process.once("SIGTERM", async () => {
+    await cleanup();
+    process.exit(0);
+  });
+
+  process.once("exit", () => {
+    cleanup().catch(() => {});
+  });
 
   let provider: InferenceProvider;
   let model: string;
@@ -68,5 +93,9 @@ export async function runRepl(options: ReplOptions = {}): Promise<void> {
     />
   );
 
-  await waitUntilExit();
+  try {
+    await waitUntilExit();
+  } finally {
+    await cleanup();
+  }
 }

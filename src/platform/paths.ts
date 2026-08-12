@@ -37,6 +37,44 @@ export function resolvePath(basePath: string, ...relativePathSegments: string[])
 }
 
 /**
+ * Resolves a requested file path against a workspace root and enforces workspace containment (path traversal prevention).
+ * Throws an Error if the target path escapes the workspace root, unless allowOutside is explicitly true.
+ */
+export function resolveWorkspacePath(
+  workspaceRoot: string = process.cwd(),
+  requestedPath: string,
+  allowOutside: boolean = false
+): string {
+  if (!requestedPath || typeof requestedPath !== "string") {
+    throw new Error("Invalid file path: path must be a non-empty string.");
+  }
+  if (requestedPath.includes("\0")) {
+    throw new Error("Invalid file path: path contains null bytes.");
+  }
+
+  const normalizedRoot = normalizePath(path.resolve(expandHome(workspaceRoot)));
+  const resolvedTarget = resolvePath(normalizedRoot, requestedPath);
+
+  if (allowOutside) {
+    return resolvedTarget;
+  }
+
+  // Cross-platform check: on Windows case-insensitive, on POSIX case-sensitive
+  const isWindows = os.platform() === "win32";
+  const checkRoot = isWindows ? normalizedRoot.toLowerCase() : normalizedRoot;
+  const checkTarget = isWindows ? resolvedTarget.toLowerCase() : resolvedTarget;
+
+  const isContained = checkTarget === checkRoot || checkTarget.startsWith(checkRoot + "/");
+  if (!isContained) {
+    throw new Error(
+      `Access denied: Path '${requestedPath}' escapes workspace root '${normalizedRoot}' (workspace containment violation).`
+    );
+  }
+
+  return resolvedTarget;
+}
+
+/**
  * System paths for Homogenous global configuration and memory.
  */
 export function getGlobalConfigDir(): string {

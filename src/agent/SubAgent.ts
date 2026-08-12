@@ -1,6 +1,7 @@
 import chalk from "chalk";
 import { AgentLoop } from "./AgentLoop.js";
 import type { InferenceProvider, Message } from "../inference/InferenceProvider.js";
+import { buildBaseSystemPrompt } from "./systemPrompt.js";
 
 export interface SubAgentResult {
   goal: string;
@@ -32,8 +33,7 @@ export class SubAgent {
     const messages: Message[] = [
       {
         role: "system",
-        content:
-          "You are a specialized sub-agent assistant. Work autonomously to achieve the assigned goal. Be concise and report key findings clearly.",
+        content: `${buildBaseSystemPrompt(process.cwd())}\n\nSpecialized Goal: You are running as an autonomous sub-agent. Focus strictly on achieving the assigned sub-task and report key findings concisely.`,
       },
       {
         role: "user",

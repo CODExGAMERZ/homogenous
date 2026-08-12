@@ -1,37 +1,42 @@
-import readline from "node:readline/promises";
 import chalk from "chalk";
 
 /**
  * Prompts user in terminal for interactive confirmation before executing a potentially destructive command.
+ * Uses direct single-keypress listening compatible with Ink and raw terminal modes.
  */
-export async function promptCommandApproval(command: string): Promise<boolean> {
-  // If running in non-interactive CI mode, refuse by default unless auto-approved
+export function promptCommandApproval(command: string): Promise<boolean> {
+  // If running in non-interactive CI mode, refuse by default
   if (!process.stdin.isTTY) {
     console.log(chalk.yellow(`[non-interactive] Auto-rejecting command: ${command}`));
-    return false;
+    return Promise.resolve(false);
   }
 
-  console.log(`\n${chalk.bold.yellow("⚠️  Action Requires Confirmation:")}`);
-  console.log(`Command to execute: ${chalk.bold.cyan(command)}`);
+  process.stdout.write(`\n${chalk.bold.yellow("⚠️  Action Requires Confirmation:")}\n`);
+  process.stdout.write(`Command: ${chalk.bold.cyan(command)}\n`);
+  process.stdout.write(chalk.bold("Execute command? Press [y] to approve, or any other key to cancel: "));
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  try {
-    const answer = await rl.question(chalk.bold("Execute command? [y/N]: "));
-    const normalized = answer.trim().toLowerCase();
-    const approved = normalized === "y" || normalized === "yes";
-
-    if (approved) {
-      console.log(chalk.green("✓ Command approved.\n"));
-    } else {
-      console.log(chalk.red("✗ Command execution declined by user.\n"));
+  return new Promise<boolean>((resolve) => {
+    if (process.stdin.setRawMode) {
+      process.stdin.setRawMode(true);
     }
+    process.stdin.resume();
 
-    return approved;
-  } finally {
-    rl.close();
-  }
+    const onData = (chunk: Buffer) => {
+      process.stdin.removeListener("data", onData);
+
+      const input = chunk.toString("utf-8");
+      // Handle 'y' or 'Y' as approval
+      const isApproved = input.toLowerCase().startsWith("y");
+
+      if (isApproved) {
+        process.stdout.write(chalk.green("y\n✓ Command approved.\n\n"));
+        resolve(true);
+      } else {
+        process.stdout.write(chalk.red("n\n✗ Command execution declined by user.\n\n"));
+        resolve(false);
+      }
+    };
+
+    process.stdin.on("data", onData);
+  });
 }

@@ -58,9 +58,36 @@ test("ReplaceFileContentTool replaces text cleanly", async () => {
   if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
 });
 
+test("ReplaceFileContentTool preserves special dollar symbols without corruption", async () => {
+  const writeTool = new WriteFileTool();
+  const replaceTool = new ReplaceFileContentTool();
+  const readTool = new ReadFileTool();
+  const testPath = "test/scratch_dollar_test.txt";
+
+  await writeTool.execute({
+    path: testPath,
+    content: "function test() {\n  return 'placeholder';\n}",
+  });
+
+  const replaceRes = await replaceTool.execute({
+    path: testPath,
+    targetContent: "return 'placeholder';",
+    replacementContent: "const $1 = '$&$$100'; return $1;",
+  });
+  assert.strictEqual(replaceRes.ok, true);
+
+  const readRes = await readTool.execute({ path: testPath });
+  assert.match(readRes.content, /const \$1 = '\$&\$\$100'; return \$1;/);
+
+  // Cleanup
+  const absPath = resolvePath(process.cwd(), testPath);
+  if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
+});
+
 test("GitStatusTool returns working directory status", async () => {
   const gitStatusTool = new GitStatusTool();
   const res = await gitStatusTool.execute({});
   assert.strictEqual(res.ok, true);
   assert.ok(typeof res.content === "string");
 });
+

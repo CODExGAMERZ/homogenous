@@ -177,6 +177,6 @@ yargs(hideBin(process.argv))
   .strict()
   .help()
   .alias("h", "help")
-  .version("3.2.0")
+  .version("3.3.1")
   .alias("v", "version")
   .parse();

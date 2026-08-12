@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import chalk from "chalk";
 import { SkillLoader, type LoadedSkill } from "./SkillLoader.js";
 import { resolvePath, getGlobalConfigDir } from "../platform/paths.js";
@@ -25,24 +26,32 @@ export class SkillRegistry {
 
     // 1. Load global skills
     const globalSkillsDir = resolvePath(getGlobalConfigDir(), "skills");
-    const globalSkills = SkillLoader.scanSkillsDirectory(globalSkillsDir);
+    const globalSkills = SkillLoader.scanSkillsDirectory(globalSkillsDir, "global");
     for (const s of globalSkills) {
       this.skillsMap.set(s.metadata.name, s);
     }
 
     // 2. Load project-local skills (precedence over global)
     const projectSkillsDir = resolvePath(projectRoot, ".homogenous", "skills");
-    const projectSkills = SkillLoader.scanSkillsDirectory(projectSkillsDir);
+    const projectSkills = SkillLoader.scanSkillsDirectory(projectSkillsDir, "project");
     for (const s of projectSkills) {
       this.skillsMap.set(s.metadata.name, s);
     }
 
-    // 3. Load bundled skills
-    const bundledSkillsDir = resolvePath(process.cwd(), "skills");
-    const bundled = SkillLoader.scanSkillsDirectory(bundledSkillsDir);
-    for (const s of bundled) {
-      if (!this.skillsMap.has(s.metadata.name)) {
-        this.skillsMap.set(s.metadata.name, s);
+    // 3. Load bundled skills strictly from installed package root (never process.cwd())
+    const possibleBundledDirs = [
+      fileURLToPath(new URL("../../skills", import.meta.url)),
+      fileURLToPath(new URL("../../../skills", import.meta.url)),
+    ];
+
+    for (const bDir of possibleBundledDirs) {
+      if (fs.existsSync(bDir)) {
+        const bundled = SkillLoader.scanSkillsDirectory(bDir, "bundled");
+        for (const s of bundled) {
+          if (!this.skillsMap.has(s.metadata.name)) {
+            this.skillsMap.set(s.metadata.name, s);
+          }
+        }
       }
     }
   }

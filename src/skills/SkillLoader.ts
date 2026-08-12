@@ -18,13 +18,14 @@ export interface LoadedSkill {
   metadata: SkillMetadata;
   body: string;
   folderPath: string;
+  origin?: "bundled" | "global" | "project";
 }
 
 export class SkillLoader {
   /**
    * Parses SKILL.md YAML frontmatter and body.
    */
-  public static parseSkillFile(filePath: string): LoadedSkill | null {
+  public static parseSkillFile(filePath: string, origin: "bundled" | "global" | "project" = "global"): LoadedSkill | null {
     if (!fs.existsSync(filePath)) return null;
 
     let content = "";
@@ -61,6 +62,7 @@ export class SkillLoader {
         metadata,
         body,
         folderPath: path.dirname(filePath),
+        origin,
       };
     } catch {
       return null;
@@ -70,7 +72,7 @@ export class SkillLoader {
   /**
    * Scans a directory for subfolders containing SKILL.md.
    */
-  public static scanSkillsDirectory(dirPath: string): LoadedSkill[] {
+  public static scanSkillsDirectory(dirPath: string, origin: "bundled" | "global" | "project" = "global"): LoadedSkill[] {
     if (!fs.existsSync(dirPath)) return [];
 
     const skills: LoadedSkill[] = [];
@@ -79,7 +81,7 @@ export class SkillLoader {
     for (const entry of entries) {
       if (entry.isDirectory()) {
         const skillFilePath = resolvePath(dirPath, entry.name, "SKILL.md");
-        const loaded = SkillLoader.parseSkillFile(skillFilePath);
+        const loaded = SkillLoader.parseSkillFile(skillFilePath, origin);
         if (loaded) {
           skills.push(loaded);
         }

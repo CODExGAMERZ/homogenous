@@ -78,11 +78,31 @@ export class McpClientManager {
         });
 
         const client = new Client(
-          { name: "homogenous-cli", version: "0.1.0" },
+          { name: "homogenous-cli", version: "3.3.1" },
           { capabilities: {} }
         );
 
-        await client.connect(transport);
+        // Connect with 5000ms timeout; if timeout wins, close transport to kill spawned process
+        let timeoutHandle: NodeJS.Timeout | undefined;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(() => {
+            reject(new Error(`Connection to MCP server '${serverName}' timed out after 5000ms`));
+          }, 5000);
+        });
+
+        try {
+          await Promise.race([client.connect(transport), timeoutPromise]);
+        } catch (connErr) {
+          try {
+            await transport.close();
+          } catch {
+            // Ignore transport close errors
+          }
+          throw connErr;
+        } finally {
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+        }
+
         this.activeClients.set(serverName, client);
 
         const toolsResult = await client.listTools();

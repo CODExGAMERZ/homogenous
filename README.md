@@ -1,22 +1,118 @@
-# Homogenous (v3.2.0) — Local-First Agentic CLI Coding Assistant
+# ✦ HOMOGENOUS (v3.3.1)
+### Local-First, Zero-Overhead Agentic CLI Coding Assistant
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
+[![Version: 3.3.1](https://img.shields.io/badge/Version-3.3.1-00F0FF.svg?style=for-the-badge)](package.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-39FF14.svg?style=for-the-badge)](LICENSE)
+[![TypeScript 5.0+](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js 20+](https://img.shields.io/badge/Node.js-20+-339933.svg?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Tests: 47 Passed](https://img.shields.io/badge/Tests-47%20Passed-39FF14.svg?style=for-the-badge)](test/)
+[![Security Hardened](https://img.shields.io/badge/Security-Hardened%20Sandbox-FF2ED1.svg?style=for-the-badge)](README.md#-comprehensive-security-architecture-v331)
 
-**Homogenous** is a local-first, zero-overhead agentic CLI coding assistant built in TypeScript and Ink (React for CLIs). Designed to mirror and enhance terminal-first coding agent workflows, Homogenous puts you in total control of your LLM backends — supporting local inference engines (Ollama, LM Studio) alongside 9 major cloud AI providers, persistent project memory, Model Context Protocol (MCP) integrations, custom skill packs, live token cost accounting, and interactive TUI feedback.
+```
+ ██╗  ██╗ ██████╗ ███╗   ███╗ ██████╗  ██████╗ ███████╗███╗   ██╗ ██████╗ ██╗   ██╗███████╗
+ ██║  ██║██╔═══██╗████╗ ████║██╔═══██╗██╔════╝ ██╔════╝████╗  ██║██╔═══██╗██║   ██║██╔════╝
+ ███████║██║   ██║██╔████╔██║██║   ██║██║  ███╗█████╗  ██╔██╗ ██║██║   ██║██║   ██║███████╗
+ ██╔══██║██║   ██║██║╚██╔╝██║██║   ██║██║   ██║██╔══╝  ██║╚██╗██║██║   ██║██║   ██║╚════██║
+ ██║  ██║╚██████╔╝██║ ╚═╝ ██║╚██████╔╝╚██████╔╝███████╗██║ ╚████║╚██████╔╝╚██████╔╝███████║
+ ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝ ╚═════╝  ╚═════╝ ╚══════╝╚═╝  ╚═══╝ ╚═════╝  ╚═════╝ ╚══════╝
+                     ✦ LOCAL-FIRST AGENTIC CODING ASSISTANT ✦
+```
+
+**Homogenous** is a local-first, zero-overhead agentic CLI coding assistant built with TypeScript, Node.js, and Ink (React for terminals). Designed to mirror and elevate terminal-first AI development workflows, Homogenous gives you complete control over your LLM backends — seamlessly combining offline local inference engines (Ollama, LM Studio) with 9 frontier cloud AI providers, persistent project memory, Model Context Protocol (MCP) tool integrations, custom dynamic skill packs, live token cost accounting, and interactive TUI feedback.
 
 ---
 
-## ✨ Core Features
+## 🚀 Quick Start & Installation
 
-- 🎨 **Dark Neon TUI Theme Engine (Ink + React 19)**: Modern, responsive full-viewport terminal UI using vibrant hex tokens (`#00F0FF` primary cyan, `#FF2ED1` secondary magenta, `#39FF14` success green, `#FFB000` warning amber, and `#FF3860` error red). Features syntax-highlighted code blocks (`cli-highlight`), state-reactive prompt container borders, middle-elision tool output cards, and live spinner indicators.
-- ⚡ **11 Supported LLM Providers**: Unified abstraction layer connecting both local offline runtimes and cloud API backends with dynamic failover:
+Homogenous can be installed on **Windows**, **macOS**, and **Linux**.
+
+### Option A: One-Line Installer (Fastest)
+
+* **Windows (PowerShell)**:
+  ```powershell
+  irm https://raw.githubusercontent.com/CODExGAMERZ/homogenous/main/install.ps1 | iex
+  ```
+
+* **macOS / Linux (Bash)**:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/CODExGAMERZ/homogenous/main/install.sh | bash
+  ```
+
+---
+
+### Option B: Standalone Pre-Packaged NPM Tarball (Only 76 KB)
+
+Download and install the self-contained production bundle with zero build steps:
+
+```bash
+npm install -g homogenous-3.3.1.tgz
+```
+
+---
+
+### Option C: Install from Source / ZIP Distribution
+
+1. Download **[homogenous-cli-v3.3.1.zip](homogenous-cli-v3.3.1.zip)** or clone the repo:
+   ```bash
+   git clone https://github.com/CODExGAMERZ/homogenous.git
+   cd homogenous
+   ```
+2. Install dependencies & build:
+   ```bash
+   npm install
+   npm run build
+   ```
+3. Link globally:
+   ```bash
+   npm link
+   ```
+
+---
+
+### ⚡ Launching Homogenous
+
+Once installed, simply run `homogenous` from **any directory** on your machine:
+
+```bash
+# Start interactive full-screen chat session
+homogenous
+
+# Run a fast single-prompt command
+homogenous oneshot "Inspect package.json and summarize the project stack"
+
+# Manage memory or skills
+homogenous memory list
+homogenous skills list
+```
+
+---
+
+## 🛡️ Comprehensive Security Architecture (v3.3.1)
+
+Homogenous is built with a defense-in-depth security model to ensure the agent operates safely inside your local codebase:
+
+| Security Module | Defensive Mechanism | Protection Provided |
+| :--- | :--- | :--- |
+| **Workspace Containment** | `resolveWorkspacePath()` root-boundary validation | Blocks directory traversal (`../../../../etc/passwd`, `~/.ssh/`) across all file reading, writing, and search tools. |
+| **Direct Argv Execution** | `execFileDirect()` subprocess spawning with `--` option terminators | Completely eliminates shell command injection (`$()`, backtick subshells, `%VAR%` expansion) in ripgrep and git tools. |
+| **Interactive Shell Approval Gate** | Raw-mode single-key confirmation (`[y]/[n]`) with metacharacter blocking | Prevents command-chaining bypasses (`cat file.txt && rm -rf ~`). State-modifying commands strictly require user consent. |
+| **Tool Input Schema Validation** | Runtime Zod schema enforcement on all tool calls | Rejects malformed or typed-injected model arguments before reaching execution handlers. |
+| **Skill Trust Boundaries** | Provenance origin tagging (`bundled`, `global`, `project`) | Untrusted repo-local `.homogenous/skills` are isolated to user prompt context rather than unrestricted `role: "system"` privileges. |
+| **WebFetch SSRF Protection** | Hop-by-hop redirect inspection & private IP blocklist | Blocks access to cloud instance metadata (`169.254.169.254`, `metadata.google.internal`), localhost, and private IPv4 networks. |
+| **Streaming Memory Caps** | Incremental `getReader()` body truncation at 500 KB | Prevents memory exhaustion attacks from oversized web pages without buffering full payloads. |
+| **Automatic 429 Rate-Limit Retry** | Exponential backoff retry loop (up to 3 attempts) | Automatically handles free-tier token-per-minute rate limit spikes without dropping the active session. |
+
+---
+
+## ✨ Core Features & Capabilities
+
+- 🎨 **Dark Neon TUI Theme Engine (Ink + React 19)**: Modern, full-viewport terminal UI with syntax-highlighted code blocks (`cli-highlight`), state-reactive prompt container borders, middle-elision tool output cards, and live spinner indicators.
+- ⚡ **11 Supported LLM Providers**: Unified abstraction layer connecting local offline runtimes and cloud API backends with dynamic task routing and fallback:
   - **Local Offline Runtimes**: [Ollama](https://ollama.com/), [LM Studio](https://lmstudio.ai/)
   - **Frontier Cloud APIs**: Anthropic (Claude 3.5 Sonnet, Claude 3 Opus), OpenAI (GPT-4o, o3-mini), Groq Free/Fast Tier, NVIDIA NIM, DeepSeek, OpenRouter, Mistral AI, Together AI, and Mock Demo mode.
 - 🖥️ **Hardware VRAM Probe**: Non-blocking 5s cached `nvidia-smi` probe displaying a live `[VRAM: X.XG/Y.YG]` badge in the terminal header with zero CPU overhead.
 - 📋 **Standing Plan Mode (`/plan` & `/apply`)**: Dry-run architectural proposal generation with structured step breakdown and explicit user review before executing file modifications through the `AgentLoop`.
-- 🛡️ **Safe Auto-Approve Mode (`/auto`)**: Automated approval for non-destructive file reads and edits, with strict safety carve-outs gating dangerous system commands (`rm -rf`, `sudo`, `git push --force`, system mutations).
+- 🛡️ **Safe Auto-Approve Mode (`/auto`)**: Automated approval for non-destructive file reads and edits, with strict safety carve-outs gating dangerous system commands.
 - 💰 **Real-Time Token Budgeting & Cost Accounting (`/budget`, `/cost`)**: Precise token counting (`js-tiktoken`), middle-elision tool output truncator, prompt cache manager, and configurable session spending caps (`maxSessionCostUSD`).
 - ⏪ **Diff Engine & Instant Rollbacks (`/diff`, `/undo`)**: In-memory edit snapshot stack supporting unified colored git-style diff preview and single-command file restoration.
 - 🧠 **Persistent Project Memory (`/memory`)**: Local vector & term-based memory retriever (`.agentmemory/`) preserving project conventions, architectural facts, and developer context across REPL sessions.
@@ -26,52 +122,7 @@
 
 ---
 
-## 📦 Installation & Setup
-
-### Prerequisites
-
-- **Node.js**: `v20.0.0` or higher
-- **npm** or **yarn** / **pnpm**
-- *(Optional)* **Ollama** or **LM Studio** for local offline inference.
-
-### Global Installation (Recommended)
-
-Install Homogenous globally to launch `homogenous` from any project directory:
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/CODExGAMERZ/homogenous.git
-cd homogenous
-
-# 2. Install dependencies & build
-npm install
-npm run build
-
-# 3. Link globally
-npm install -g .
-
-# 4. Launch from ANY folder on your system!
-homogenous
-```
-
-### Development Execution
-
-Run directly in dev mode using `tsx`:
-
-```bash
-# Start interactive REPL in current directory
-npm run dev
-
-# Launch chat with a specific model override
-npx tsx bin/homogenous.ts chat --model groq/llama-3.1-8b-instant
-
-# Run a non-interactive one-shot query
-npx tsx bin/homogenous.ts oneshot "Examine src/index.ts and summarize export signatures"
-```
-
----
-
-## 📖 CLI Command Line Interface
+## 📖 CLI Command Reference
 
 ```bash
 homogenous                            # Start interactive REPL chat session (default)
@@ -162,7 +213,7 @@ fallbackOrder:
 
 ---
 
-## 📁 Repository Architecture & Folder Structure
+## 📁 Repository Architecture
 
 ```
 homogenous/
@@ -174,6 +225,7 @@ homogenous/
 │   │   ├── ExecutionMode.ts          # Normal, Auto-Approve, and Plan mode definitions
 │   │   ├── PlanningMode.ts           # Implementation plan generator & step parser
 │   │   ├── SubAgent.ts               # Sub-agent delegate spawner for parallel tasks
+│   │   ├── systemPrompt.ts           # Centralized system prompt builder with environment context
 │   │   └── tools/                    # File, Shell, Git, Search, and Web tool implementations
 │   ├── cli/                          # Terminal User Interface & REPL engine
 │   │   ├── repl.tsx                  # Interactive REPL main loop (Ink React render)
@@ -184,16 +236,18 @@ homogenous/
 │   ├── config/                       # YAML configuration resolver & schema validation (Zod)
 │   ├── inference/                    # LLM Provider abstraction & keychain security
 │   │   ├── ProviderRegistry.ts       # Central registry for all 11 inference providers
-│   │   ├── keychain.ts               # OS Keychain (keytar) / secure local storage fallback
+│   │   ├── keychain.ts               # OS Keychain (keytar) / secure local storage fallback (0600)
 │   │   └── providers/                # Provider modules (Anthropic, OpenAI, Groq, Ollama, etc.)
 │   ├── mcp/                          # Model Context Protocol (MCP) server integration
 │   ├── memory/                       # Persistent & session memory storage, retriever & compactor
-│   ├── platform/                     # Platform utilities (cross-spawn shell, vramProbe, paths)
+│   ├── platform/                     # Platform utilities (direct argv shell, vramProbe, paths)
 │   ├── skills/                       # Dynamic skill pack loader, registry & installer
 │   ├── token-budget/                 # Token counter, cost ledger, prompt caching & diff engine
-│   └── utils/                        # Code block parser & helpers
-├── skills/                           # Bundled stock skill packs (code-refactor, test-scaffolder)
-├── test/                             # Automated test suite (37 unit test files)
+│   └── utils/                        # Code block parser & clipboard helpers
+├── skills/                           # Bundled stock skill packs (code-refactor, test-scaffolder, etc.)
+├── test/                             # Automated test suite (47 unit tests across 12 test suites)
+├── install.ps1                       # One-line installer for Windows
+├── install.sh                        # One-line installer for Linux / macOS
 ├── .toolrc.example.yaml              # Example project configuration template
 ├── package.json                      # Project metadata & scripts
 └── tsconfig.json                     # TypeScript compiler configuration
@@ -201,23 +255,26 @@ homogenous/
 
 ---
 
-## 🧪 Testing & Verification
+## 🧪 Development, Testing & Verification
 
-Homogenous is thoroughly tested across TypeScript types, tool mechanics, and provider abstractions:
+Homogenous is fully covered with automated TypeScript type checking, unit tests, and security tests:
 
 ```bash
 # 1. Typecheck codebase (0 errors)
 npm run typecheck
 
-# 2. Build distribution bundle
+# 2. Run automated unit test suite (47 passing tests)
+npm test
+
+# 3. Build production distribution bundle
 npm run build
 
-# 3. Run automated unit test suite (37 passing test suites)
-npm test
+# 4. Create standalone npm package tarball
+npm pack
 ```
 
 ---
 
-## 📄 License
+## 📄 License & Author
 
-This project is open-source software licensed under the [MIT License](LICENSE).
+Developed by **CODExGAMERZ**. Licensed under the open-source **[MIT License](LICENSE)**.

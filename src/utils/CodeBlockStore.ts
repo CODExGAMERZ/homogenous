@@ -46,16 +46,28 @@ export class CodeBlockStore {
   }
 
   public copyToClipboard(text: string): boolean {
+    const opts = { input: text, encoding: "utf-8" as const, timeout: 2500, stdio: ["pipe", "ignore", "ignore"] as any };
     try {
       if (process.platform === "win32") {
-        execSync("clip", { input: text, encoding: "utf-8" });
+        execSync("clip", opts);
         return true;
       } else if (process.platform === "darwin") {
-        execSync("pbcopy", { input: text, encoding: "utf-8" });
+        execSync("pbcopy", opts);
         return true;
       } else {
-        execSync("xclip -selection clipboard", { input: text, encoding: "utf-8" });
-        return true;
+        // Try xclip, then wl-copy (Wayland), then xsel
+        try {
+          execSync("xclip -selection clipboard", opts);
+          return true;
+        } catch {
+          try {
+            execSync("wl-copy", opts);
+            return true;
+          } catch {
+            execSync("xsel --clipboard --input", opts);
+            return true;
+          }
+        }
       }
     } catch {
       return false;

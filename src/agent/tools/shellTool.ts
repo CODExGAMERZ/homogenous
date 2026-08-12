@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { BaseTool, type ToolResult } from "./BaseTool.js";
 import { execCommand } from "../../platform/shell.js";
 import { promptCommandApproval } from "../../cli/ui/ConfirmPrompt.js";
@@ -10,6 +11,11 @@ const SAFE_READ_COMMANDS = [
   "ls",
   "dir",
   "cat",
+  "echo",
+  "date",
+  "time",
+  "date /t",
+  "time /t",
   "node -v",
   "npm -v",
   "npm list",
@@ -17,10 +23,16 @@ const SAFE_READ_COMMANDS = [
   "pwd",
 ];
 
+// Shell metacharacters and control operators that allow chaining, redirection, or expansion
+const SHELL_METACHARS_REGEX = /[;&|`$()<>\n\r%^]/;
+
 export class ShellExecuteTool extends BaseTool {
   readonly name = "shell_execute";
   readonly description =
     "Execute terminal shell command. Safe read-only commands auto-execute; state-modifying actions prompt for user approval.";
+  readonly zodSchema = z.object({
+    command: z.string().min(1, "Command must not be empty"),
+  });
   readonly inputSchema = {
     type: "object",
     properties: {
@@ -32,7 +44,18 @@ export class ShellExecuteTool extends BaseTool {
     required: ["command"],
   };
 
-  private isSafeCommand(cmd: string): boolean {
+  /**
+   * Evaluates whether a command is strictly a safe read-only operation.
+   * Rejects any command containing shell chaining, redirection, or variable expansion operators.
+   */
+  public isSafeCommand(cmd: string): boolean {
+    if (!cmd || typeof cmd !== "string") return false;
+
+    // 1. Immediately reject commands containing shell chaining or expansion metacharacters
+    if (SHELL_METACHARS_REGEX.test(cmd)) {
+      return false;
+    }
+
     const trimmed = cmd.trim().toLowerCase();
     return SAFE_READ_COMMANDS.some(
       (safe) => trimmed === safe || trimmed.startsWith(`${safe} `)
@@ -40,7 +63,7 @@ export class ShellExecuteTool extends BaseTool {
   }
 
   async execute(input: Record<string, unknown>): Promise<ToolResult> {
-    const command = input.command as string;
+    let command = input.command as string;
 
     if (!command || !command.trim()) {
       return {
@@ -48,6 +71,13 @@ export class ShellExecuteTool extends BaseTool {
         isError: true,
         content: "Error: No command provided to execute.",
       };
+    }
+
+    // Normalize Windows date and time commands to non-interactive /t mode so they don't prompt for input
+    if (process.platform === "win32") {
+      const lower = command.trim().toLowerCase();
+      if (lower === "date") command = "date /t";
+      if (lower === "time") command = "time /t";
     }
 
     const safe = this.isSafeCommand(command);
@@ -58,7 +88,7 @@ export class ShellExecuteTool extends BaseTool {
         return {
           ok: false,
           isError: true,
-          content: `Execution rejected: User declined execution of command '${command}'.`,
+          content: `Execution rejected: User explicitly declined execution of command '${command}'. Do NOT retry this command or request approval again for this turn. Answer the user directly using existing knowledge or proceed to the next step.`,
         };
       }
     }

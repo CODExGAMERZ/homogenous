@@ -1,13 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 import { BaseTool, type ToolResult } from "./BaseTool.js";
-import { execCommand } from "../../platform/shell.js";
-import { resolvePath } from "../../platform/paths.js";
+import { execFileDirect } from "../../platform/shell.js";
+import { resolveWorkspacePath } from "../../platform/paths.js";
 
 export class GrepSearchTool extends BaseTool {
   readonly name = "grep_search";
   readonly description =
-    "Search for exact string pattern or regular expression across files in workspace using ripgrep.";
+    "Search for exact string pattern or regular expression across files in workspace using ripgrep (with JS fallback).";
+  readonly zodSchema = z.object({
+    query: z.string().min(1, "query must not be empty"),
+    path: z.string().optional(),
+  });
   readonly inputSchema = {
     type: "object",
     properties: {
@@ -23,13 +28,76 @@ export class GrepSearchTool extends BaseTool {
     required: ["query"],
   };
 
+  private jsGrepFallback(query: string, searchDir: string): string[] {
+    const results: string[] = [];
+    const lowerQuery = query.toLowerCase();
+    const visited = new Set<string>();
+
+    function walk(dir: string, depth: number) {
+      if (depth > 15 || results.length >= 50) return;
+      let real: string;
+      try {
+        real = fs.realpathSync(dir);
+        if (visited.has(real)) return;
+        visited.add(real);
+      } catch {
+        return;
+      }
+
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+
+      for (const entry of entries) {
+        if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist") {
+          continue;
+        }
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(fullPath, depth + 1);
+        } else if (entry.isFile()) {
+          try {
+            const content = fs.readFileSync(fullPath, "utf-8");
+            const lines = content.split(/\r?\n/);
+            lines.forEach((line, idx) => {
+              if (line.toLowerCase().includes(lowerQuery) && results.length < 50) {
+                const rel = path.relative(process.cwd(), fullPath).replace(/\\/g, "/");
+                results.push(`${rel}:${idx + 1}:${line.slice(0, 200)}`);
+              }
+            });
+          } catch {
+            // Ignore binary/unreadable files
+          }
+        }
+      }
+    }
+
+    walk(searchDir, 0);
+    return results;
+  }
+
   async execute(input: Record<string, unknown>): Promise<ToolResult> {
     const query = input.query as string;
     const searchPath = (input.path as string) || ".";
 
+    let absSearchDir: string;
     try {
-      const command = `rg -nI --max-columns 200 -e ${JSON.stringify(query)} ${JSON.stringify(searchPath)}`;
-      const result = await execCommand(command, { timeoutMs: 15000 });
+      absSearchDir = resolveWorkspacePath(process.cwd(), searchPath);
+    } catch (err) {
+      return {
+        ok: false,
+        isError: true,
+        content: (err as Error).message,
+      };
+    }
+
+    try {
+      // Direct argv execution terminates options with '--' to avoid argument injection / option confusion
+      const args = ["-nI", "--max-columns", "200", "-e", query, "--", absSearchDir];
+      const result = await execFileDirect("rg", args, { timeoutMs: 15000 });
 
       if (result.exitCode === 0 && result.stdout.trim()) {
         return {
@@ -38,24 +106,47 @@ export class GrepSearchTool extends BaseTool {
         };
       }
 
-      if (result.exitCode === 1 || !result.stdout.trim()) {
+      if (result.exitCode === 1) {
         return {
           ok: true,
           content: `No matches found for query '${query}'.`,
         };
       }
 
+      // If ripgrep returned an error (or is not installed), use pure JS fallback
+      const fallbackResults = this.jsGrepFallback(query, absSearchDir);
+      if (fallbackResults.length > 0) {
+        return {
+          ok: true,
+          content: `Search results for '${query}' (via fallback search):\n\n${fallbackResults.join("\n")}`,
+        };
+      }
+
       return {
-        ok: false,
-        isError: true,
-        content: `Search error: ${result.stderr}`,
+        ok: true,
+        content: `No matches found for query '${query}'.`,
       };
-    } catch (err) {
-      return {
-        ok: false,
-        isError: true,
-        content: `Grep search execution failed: ${(err as Error).message}`,
-      };
+    } catch {
+      // Graceful fallback to JS grep on execution error
+      try {
+        const fallbackResults = this.jsGrepFallback(query, absSearchDir);
+        if (fallbackResults.length > 0) {
+          return {
+            ok: true,
+            content: `Search results for '${query}' (via fallback search):\n\n${fallbackResults.join("\n")}`,
+          };
+        }
+        return {
+          ok: true,
+          content: `No matches found for query '${query}'.`,
+        };
+      } catch (fallbackErr) {
+        return {
+          ok: false,
+          isError: true,
+          content: `Grep search execution failed: ${(fallbackErr as Error).message}`,
+        };
+      }
     }
   }
 }
@@ -63,6 +154,9 @@ export class GrepSearchTool extends BaseTool {
 export class GlobFilesTool extends BaseTool {
   readonly name = "glob_files";
   readonly description = "Find files matching directory pattern or filename search in workspace.";
+  readonly zodSchema = z.object({
+    pattern: z.string().min(1, "pattern must not be empty"),
+  });
   readonly inputSchema = {
     type: "object",
     properties: {
@@ -79,10 +173,26 @@ export class GlobFilesTool extends BaseTool {
 
     try {
       const matches: string[] = [];
+      const visitedRealPaths = new Set<string>();
 
-      function walkDir(dir: string) {
-        if (matches.length > 200) return;
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
+      function walkDir(dir: string, depth: number = 0) {
+        if (matches.length > 200 || depth > 20) return;
+
+        let realPath: string;
+        try {
+          realPath = fs.realpathSync(dir);
+          if (visitedRealPaths.has(realPath)) return;
+          visitedRealPaths.add(realPath);
+        } catch {
+          return;
+        }
+
+        let entries: fs.Dirent[];
+        try {
+          entries = fs.readdirSync(dir, { withFileTypes: true });
+        } catch {
+          return;
+        }
 
         for (const entry of entries) {
           if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist") {
@@ -90,7 +200,7 @@ export class GlobFilesTool extends BaseTool {
           }
           const fullPath = path.join(dir, entry.name);
           if (entry.isDirectory()) {
-            walkDir(fullPath);
+            walkDir(fullPath, depth + 1);
           } else if (entry.isFile()) {
             if (entry.name.toLowerCase().includes(pattern) || fullPath.toLowerCase().includes(pattern)) {
               matches.push(fullPath.replace(/\\/g, "/"));
@@ -99,7 +209,7 @@ export class GlobFilesTool extends BaseTool {
         }
       }
 
-      walkDir(process.cwd());
+      walkDir(process.cwd(), 0);
 
       if (matches.length === 0) {
         return {

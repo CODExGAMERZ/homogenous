@@ -1,19 +1,25 @@
 import fs from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 import { BaseTool, type ToolResult } from "./BaseTool.js";
-import { resolvePath } from "../../platform/paths.js";
+import { resolveWorkspacePath } from "../../platform/paths.js";
 import { DiffEngine } from "../../token-budget/DiffEngine.js";
 
 export class ReadFileTool extends BaseTool {
   readonly name = "read_file";
   readonly description =
     "Read the contents of a file from the workspace. Supports specifying StartLine and EndLine (1-indexed).";
+  readonly zodSchema = z.object({
+    path: z.string().min(1, "Path must not be empty"),
+    startLine: z.number().int().positive().optional(),
+    endLine: z.number().int().positive().optional(),
+  });
   readonly inputSchema = {
     type: "object",
     properties: {
       path: {
         type: "string",
-        description: "Path to the file to read (relative or absolute).",
+        description: "Path to the file to read (relative to workspace).",
       },
       startLine: {
         type: "integer",
@@ -33,7 +39,7 @@ export class ReadFileTool extends BaseTool {
     const endLine = input.endLine as number | undefined;
 
     try {
-      const absPath = resolvePath(process.cwd(), filePath);
+      const absPath = resolveWorkspacePath(process.cwd(), filePath);
       if (!fs.existsSync(absPath)) {
         return {
           ok: false,
@@ -70,13 +76,17 @@ export class ReadFileTool extends BaseTool {
 export class WriteFileTool extends BaseTool {
   readonly name = "write_file";
   readonly description =
-    "Create a new file or overwrite an existing file with complete content. Automatically creates parent directories.";
+    "Create a new file or overwrite an existing file with complete content within the workspace. Automatically creates parent directories.";
+  readonly zodSchema = z.object({
+    path: z.string().min(1, "Path must not be empty"),
+    content: z.string(),
+  });
   readonly inputSchema = {
     type: "object",
     properties: {
       path: {
         type: "string",
-        description: "Target file path to write to.",
+        description: "Target file path to write to (relative to workspace).",
       },
       content: {
         type: "string",
@@ -91,7 +101,7 @@ export class WriteFileTool extends BaseTool {
     const content = input.content as string;
 
     try {
-      const absPath = resolvePath(process.cwd(), filePath);
+      const absPath = resolveWorkspacePath(process.cwd(), filePath);
       const parentDir = path.dirname(absPath);
 
       if (!fs.existsSync(parentDir)) {
@@ -119,13 +129,18 @@ export class WriteFileTool extends BaseTool {
 export class ReplaceFileContentTool extends BaseTool {
   readonly name = "replace_file_content";
   readonly description =
-    "Replace exact target text with new replacement text within a file.";
+    "Replace exact target text with new replacement text within a workspace file.";
+  readonly zodSchema = z.object({
+    path: z.string().min(1, "Path must not be empty"),
+    targetContent: z.string().min(1, "targetContent must not be empty"),
+    replacementContent: z.string(),
+  });
   readonly inputSchema = {
     type: "object",
     properties: {
       path: {
         type: "string",
-        description: "Path to the file to modify.",
+        description: "Path to the file to modify (relative to workspace).",
       },
       targetContent: {
         type: "string",
@@ -145,7 +160,7 @@ export class ReplaceFileContentTool extends BaseTool {
     const replacementContent = input.replacementContent as string;
 
     try {
-      const absPath = resolvePath(process.cwd(), filePath);
+      const absPath = resolveWorkspacePath(process.cwd(), filePath);
       if (!fs.existsSync(absPath)) {
         return {
           ok: false,
@@ -163,7 +178,8 @@ export class ReplaceFileContentTool extends BaseTool {
         };
       }
 
-      const newContent = fileContent.replace(targetContent, replacementContent);
+      // Use callback replacement to avoid special $1, $2, $$ pattern expansion bugs in JS string replace
+      const newContent = fileContent.replace(targetContent, () => replacementContent);
 
       // Record edit snapshot in DiffEngine undo stack
       DiffEngine.recordFileEdit(filePath, newContent);

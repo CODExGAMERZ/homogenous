@@ -36,8 +36,16 @@ function loadStoredKeys(): Record<string, string> {
 
 function saveStoredKeys(keys: Record<string, string>): void {
   const filePath = getKeysFilePath();
-  // Enforce strict user-only read/write permissions (0600)
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
   fs.writeFileSync(filePath, JSON.stringify(keys, null, 2), { encoding: "utf-8", mode: 0o600 });
+  try {
+    fs.chmodSync(filePath, 0o600);
+  } catch {
+    // Ignore chmod errors on systems without POSIX permissions
+  }
 }
 
 function cleanApiKey(rawKey: string | undefined): string | undefined {
@@ -138,10 +146,12 @@ export class KeychainService {
       savedInKeytar = false;
     }
 
-    // Always keep encrypted/fallback local 0600 file updated
-    const stored = loadStoredKeys();
-    stored[provider] = cleanedKey;
-    saveStoredKeys(stored);
+    // If keytar OS keychain is unavailable, save to user-restricted 0600 file fallback
+    if (!savedInKeytar) {
+      const stored = loadStoredKeys();
+      stored[provider] = cleanedKey;
+      saveStoredKeys(stored);
+    }
 
     // Hot-reload provider instance in ProviderRegistry if active
     const registryProvider = ProviderRegistry.getInstance().getProvider(provider);

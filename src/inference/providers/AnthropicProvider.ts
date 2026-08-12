@@ -166,15 +166,34 @@ export class AnthropicProvider implements InferenceProvider {
       input_schema: t.inputSchema as Anthropic.Tool.InputSchema,
     }));
 
-    const res = await client.messages.create({
-      model: request.model || "claude-3-5-sonnet-20241022",
-      max_tokens: request.maxTokens || 4096,
-      temperature: request.temperature,
-      system,
-      messages: convertedMsgs,
-      tools,
-      stop_sequences: request.stopSequences,
-    });
+    const maxRetries = 3;
+    let res: Anthropic.Message | undefined;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        res = await client.messages.create({
+          model: request.model || "claude-3-5-sonnet-20241022",
+          max_tokens: request.maxTokens || 4096,
+          temperature: request.temperature,
+          system,
+          messages: convertedMsgs,
+          tools,
+          stop_sequences: request.stopSequences,
+        });
+        break;
+      } catch (err: any) {
+        if ((err?.status === 429 || err?.message?.includes("rate_limit")) && attempt < maxRetries) {
+          const delayMs = Math.min(1500 * (attempt + 1), 5000);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (!res) {
+      throw new Error("Anthropic API error: No response received.");
+    }
 
     const contentBlocks: ContentBlock[] = res.content.map((b) => {
       if (b.type === "text") {

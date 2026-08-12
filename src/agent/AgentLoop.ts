@@ -83,11 +83,19 @@ export class AgentLoop {
     if (lastUserMsg && typeof lastUserMsg.content === "string") {
       const matchedSkill = SkillRegistry.getInstance().matchTrigger(lastUserMsg.content);
       if (matchedSkill) {
-        console.log(chalk.bold.magenta(`⚡ Dynamic Skill Triggered: '${matchedSkill.metadata.name}'`));
-        messages.push({
-          role: "system",
-          content: `[Skill Active: ${matchedSkill.metadata.name}]\n${matchedSkill.body}`,
-        });
+        console.log(chalk.bold.magenta(`⚡ Dynamic Skill Triggered: '${matchedSkill.metadata.name}' (${matchedSkill.origin || "global"})`));
+        // Isolate project-local skills: inject as user-context boundary; keep system prompt only for trusted bundled/global skills
+        if (matchedSkill.origin === "project") {
+          messages.push({
+            role: "user",
+            content: `[Project-Local Skill: ${matchedSkill.metadata.name}]\n${matchedSkill.body}`,
+          });
+        } else {
+          messages.push({
+            role: "system",
+            content: `[Skill Active: ${matchedSkill.metadata.name}]\n${matchedSkill.body}`,
+          });
+        }
       }
     }
 
@@ -163,8 +171,20 @@ export class AgentLoop {
           continue;
         }
 
+        // Validate tool input against schema before executing
+        const validation = tool.validateInput(input);
+        if (!validation.valid) {
+          resultBlocks.push({
+            type: "tool_result",
+            toolCallId: id,
+            content: `Error: ${validation.error}`,
+            isError: true,
+          });
+          continue;
+        }
+
         try {
-          const rawResult = await tool.execute(input);
+          const rawResult = await tool.execute(validation.data || input);
           const truncated = ToolOutputTruncator.truncate(rawResult.content, 4000);
 
           resultBlocks.push({

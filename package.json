@@ -1,6 +1,6 @@
 {
   "name": "homogenous",
-  "version": "3.2.0",
+  "version": "3.3.1",
   "description": "Local-First Agentic CLI Coding Assistant",
   "type": "module",
   "main": "./dist/src/cli/index.js",

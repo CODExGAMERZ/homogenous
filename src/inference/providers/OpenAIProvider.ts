@@ -95,27 +95,60 @@ export class OpenAIProvider implements InferenceProvider {
     };
   }
 
-  private convertMessages(messages: Message[]) {
-    return messages.map((m) => {
+  private convertMessages(messages: Message[]): any[] {
+    const formatted: any[] = [];
+
+    for (const m of messages) {
       if (typeof m.content === "string") {
-        return { role: m.role, content: m.content };
+        formatted.push({ role: m.role, content: m.content });
+        continue;
       }
 
-      // Convert tool results & tool calls to OpenAI standard format
-      const parts: any[] = [];
-      for (const b of m.content) {
-        if (b.type === "text") {
-          parts.push({ type: "text", text: b.text });
-        } else if (b.type === "tool_result") {
-          return {
-            role: "tool",
-            tool_call_id: b.toolCallId,
-            content: b.content,
-          };
+      if (Array.isArray(m.content)) {
+        if (m.role === "assistant") {
+          const textBlocks = m.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text);
+          const toolUseBlocks = m.content.filter((b) => b.type === "tool_use") as Array<{ type: "tool_use"; toolCall: { id: string; name: string; input: Record<string, unknown> } }>;
+
+          const textContent = textBlocks.join("\n");
+          if (toolUseBlocks.length > 0) {
+            formatted.push({
+              role: "assistant",
+              content: textContent || null,
+              tool_calls: toolUseBlocks.map((tu) => ({
+                id: tu.toolCall.id,
+                type: "function",
+                function: {
+                  name: tu.toolCall.name,
+                  arguments: typeof tu.toolCall.input === "string" ? tu.toolCall.input : JSON.stringify(tu.toolCall.input || {}),
+                },
+              })),
+            });
+          } else {
+            formatted.push({ role: "assistant", content: textContent });
+          }
+        } else {
+          // User or Tool result message block array
+          const toolResults = m.content.filter((b) => b.type === "tool_result") as Array<{ type: "tool_result"; toolCallId: string; content: string; isError?: boolean }>;
+          const textBlocks = m.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text);
+
+          if (toolResults.length > 0) {
+            for (const tr of toolResults) {
+              formatted.push({
+                role: "tool",
+                tool_call_id: tr.toolCallId,
+                content: tr.content,
+              });
+            }
+          }
+
+          if (textBlocks.length > 0) {
+            formatted.push({ role: m.role, content: textBlocks.join("\n") });
+          }
         }
       }
-      return { role: m.role, content: parts.length === 1 ? parts[0].text : parts };
-    });
+    }
+
+    return formatted;
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
@@ -131,24 +164,41 @@ export class OpenAIProvider implements InferenceProvider {
       },
     }));
 
-    const res = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: request.model || "gpt-4o",
-        messages: formattedMsgs,
-        tools: tools && tools.length > 0 ? tools : undefined,
-        max_tokens: request.maxTokens || 4096,
-        temperature: request.temperature,
-      }),
-    });
+    const maxRetries = 3;
+    let res: Response | undefined;
+    let errText = "";
 
-    if (!res.ok) {
-      const errText = await res.text();
-      if (res.status === 400 && errText.includes("tool_use_failed") && tools && tools.length > 0) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: request.model || "gpt-4o",
+          messages: formattedMsgs,
+          tools: tools && tools.length > 0 ? tools : undefined,
+          max_tokens: request.maxTokens || 4096,
+          temperature: request.temperature,
+        }),
+      });
+
+      if (res.status === 429 && attempt < maxRetries) {
+        const retryHeader = res.headers.get("retry-after");
+        let delayMs = retryHeader ? parseFloat(retryHeader) * 1000 : 1500 * (attempt + 1);
+        if (isNaN(delayMs) || delayMs <= 0) delayMs = 1500 * (attempt + 1);
+        delayMs = Math.min(delayMs, 5000);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+
+      break;
+    }
+
+    if (!res || !res.ok) {
+      errText = res ? await res.text() : "Network error";
+      if (res && res.status === 400 && errText.includes("tool_use_failed") && tools && tools.length > 0) {
         const fallbackRes = await fetch(`${this.baseUrl}/chat/completions`, {
           method: "POST",
           headers: {
@@ -164,14 +214,14 @@ export class OpenAIProvider implements InferenceProvider {
         });
         if (fallbackRes.ok) {
           const fallbackData = (await fallbackRes.json()) as any;
-          const choice = fallbackData.choices[0];
+          const choice = fallbackData.choices?.[0];
           const contentBlocks: ContentBlock[] = [];
-          if (choice.message.content) {
+          if (choice?.message?.content) {
             contentBlocks.push({ type: "text", text: choice.message.content });
           }
           return {
             content: contentBlocks,
-            stopReason: choice.finish_reason === "length" ? "max_tokens" : "end_turn",
+            stopReason: choice?.finish_reason === "length" ? "max_tokens" : "end_turn",
             usage: {
               inputTokens: fallbackData.usage?.prompt_tokens || 0,
               outputTokens: fallbackData.usage?.completion_tokens || 0,
@@ -180,25 +230,44 @@ export class OpenAIProvider implements InferenceProvider {
           };
         }
       }
-      throw new Error(`${String(this.id).toUpperCase()} API error ${res.status}: ${errText}`);
+      throw new Error(`${String(this.id).toUpperCase()} API error ${res?.status || 500}: ${errText}`);
     }
 
     const data = (await res.json()) as any;
+    if (!data.choices || data.choices.length === 0) {
+      return {
+        content: [{ type: "text", text: data.error?.message || "No response returned from model." }],
+        stopReason: "end_turn",
+        usage: {
+          inputTokens: data.usage?.prompt_tokens || 0,
+          outputTokens: data.usage?.completion_tokens || 0,
+        },
+        raw: data,
+      };
+    }
+
     const choice = data.choices[0];
     const contentBlocks: ContentBlock[] = [];
 
-    if (choice.message.content) {
+    if (choice.message?.content) {
       contentBlocks.push({ type: "text", text: choice.message.content });
     }
 
-    if (choice.message.tool_calls) {
+    if (choice.message?.tool_calls) {
       for (const tc of choice.message.tool_calls) {
+        let parsedInput: Record<string, unknown> = {};
+        try {
+          parsedInput = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments || "{}") : tc.function.arguments || {};
+        } catch {
+          parsedInput = { raw: tc.function.arguments };
+        }
+
         contentBlocks.push({
           type: "tool_use",
           toolCall: {
             id: tc.id,
             name: tc.function.name,
-            input: JSON.parse(tc.function.arguments || "{}"),
+            input: parsedInput,
           },
         });
       }

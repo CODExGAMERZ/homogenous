@@ -2,6 +2,8 @@ import chalk from "chalk";
 import { ProviderRegistry } from "../inference/ProviderRegistry.js";
 import type { Message, InferenceProvider } from "../inference/InferenceProvider.js";
 
+import { buildBaseSystemPrompt } from "../agent/systemPrompt.js";
+
 export interface OneshotOptions {
   model?: string;
   systemPrompt?: string;
@@ -45,8 +47,7 @@ export async function runOneshot(prompt: string, options: OneshotOptions = {}): 
   } else {
     messages.push({
       role: "system",
-      content:
-        "You are Homogenous, a local-first agentic CLI coding assistant. Be concise, precise, and practical.",
+      content: buildBaseSystemPrompt(process.cwd()),
     });
   }
 

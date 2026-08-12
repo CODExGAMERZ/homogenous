@@ -15,6 +15,7 @@ import { SlashCommandRegistry } from "../slash/SlashCommandRegistry.js";
 import type { CommandContext, PendingPlan } from "../slash/SlashCommand.js";
 import { ConfigResolver } from "../../config/ConfigResolver.js";
 import { getGitBranch } from "../../platform/shell.js";
+import { buildBaseSystemPrompt } from "../../agent/systemPrompt.js";
 
 export interface AppProps {
   provider?: InferenceProvider;
@@ -94,7 +95,9 @@ const AppContent: React.FC<AppProps> = ({
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [streamingText, setStreamingText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [sessionMemory] = useState<SessionMemory>(() => new SessionMemory("You are Homogenous Agent, a local-first agentic coding assistant."));
+  const [sessionMemory] = useState<SessionMemory>(
+    () => new SessionMemory(buildBaseSystemPrompt(workspacePath))
+  );
   const [gitBranch, setGitBranch] = useState(initialGitBranch);
 
   const [pendingPlan, setPendingPlan] = useState<PendingPlan | null>(null);
