@@ -1,50 +1,61 @@
 # Dependencies
 node_modules/
-jspm_packages/
+.pnp/
+.pnp.js
 
-# Build artifacts & outputs
+# Build Artifacts & Distribution Bundles
 dist/
 build/
+*.tsbuildinfo
 *.tgz
 *.zip
+*.tar.gz
 
-# Local configuration & credentials (DO NOT COMMIT SENSITIVE KEYS)
-.toolrc.yaml
-keys.json
-.keys.json
+# Local Credentials & Environment Variables (DO NOT COMMIT)
 .env
 .env.local
 .env.*.local
+!.env.example
+.toolrc.yaml
+!.toolrc.example.yaml
+.mcp.json
+!.mcp.example.json
+keys.json
+.keys.json
 
-# Homogenous local runtime storage & cache
+# Homogenous Local Runtime State & Memory
 .agentmemory/
 .homogenous/
 
-# Logs
-logs
+# Logs & Diagnostics
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 lerna-debug.log*
 
-# Diagnostic & coverage reports
+# Test Coverage & Temp Scratch Files
 coverage/
-*.lcov
 .nyc_output/
+*.lcov
+test/scratch_*
+scratch/
+tmp/
+temp/
 
-# OS & Editor metadata
+# IDE & OS Metadata
 .DS_Store
 Thumbs.db
-.vscode/
+.idea/
+.vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
-.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-
