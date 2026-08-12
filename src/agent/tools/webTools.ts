@@ -1,34 +1,109 @@
+import dns from "node:dns/promises";
+import net from "node:net";
 import { z } from "zod";
 import { BaseTool, type ToolResult } from "./BaseTool.js";
 import { ToolOutputTruncator } from "../../token-budget/ToolOutputTruncator.js";
 
 /**
- * Checks if a hostname or IP is a forbidden internal/cloud-metadata address (SSRF protection).
+ * Validates whether an IPv4 numeric representation (or octets) falls in private/loopback/link-local ranges.
  */
-function isForbiddenHost(hostname: string): boolean {
-  const lower = hostname.toLowerCase();
+function isPrivateIPv4(ip: string): boolean {
+  let num: number | null = null;
+
+  // Decimal integer representation (e.g. 2130706433)
+  if (/^\d+$/.test(ip)) {
+    const val = Number(ip);
+    if (val >= 0 && val <= 0xffffffff) {
+      num = val;
+    }
+  } else if (/^0x[0-9a-fA-F]+$/i.test(ip)) {
+    // Hex integer representation (e.g. 0x7f000001)
+    const val = Number(ip);
+    if (val >= 0 && val <= 0xffffffff) {
+      num = val;
+    }
+  } else if (/^\d{1,3}(\.\d{1,3}){1,3}$/.test(ip)) {
+    // Standard or short-form dotted decimal (e.g. 127.0.0.1, 127.1)
+    const parts = ip.split(".").map((p) => parseInt(p, 10));
+    if (parts.length === 2) {
+      num = (parts[0] << 24) | (parts[1] & 0x00ffffff);
+    } else if (parts.length === 3) {
+      num = (parts[0] << 24) | ((parts[1] & 0xff) << 16) | (parts[2] & 0x0000ffff);
+    } else if (parts.length === 4) {
+      num = ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
+    }
+  }
+
+  if (num !== null) {
+    const b1 = (num >>> 24) & 0xff;
+    const b2 = (num >>> 16) & 0xff;
+
+    // 0.0.0.0/8 (Current network)
+    if (b1 === 0) return true;
+    // 127.0.0.0/8 (Loopback)
+    if (b1 === 127) return true;
+    // 10.0.0.0/8 (Private)
+    if (b1 === 10) return true;
+    // 169.254.0.0/16 (Link-local / Cloud metadata)
+    if (b1 === 169 && b2 === 254) return true;
+    // 172.16.0.0/12 (Private)
+    if (b1 === 172 && b2 >= 16 && b2 <= 31) return true;
+    // 192.168.0.0/16 (Private)
+    if (b1 === 192 && b2 === 168) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Checks if a hostname, resolved IP, or encoded address is a forbidden internal/cloud-metadata address (SSRF protection).
+ */
+async function isForbiddenHost(hostname: string): Promise<boolean> {
+  const lower = hostname.toLowerCase().trim();
+
+  // Strip IPv6 brackets if present (e.g. [::1])
+  const unbracketed = lower.startsWith("[") && lower.endsWith("]") ? lower.slice(1, -1) : lower;
+
   if (
-    lower === "localhost" ||
-    lower === "127.0.0.1" ||
-    lower === "::1" ||
-    lower === "0.0.0.0" ||
-    lower === "169.254.169.254" || // AWS / GCP / Azure instance metadata
-    lower === "metadata.google.internal" ||
-    lower.endsWith(".localhost") ||
-    lower.endsWith(".local") ||
-    lower.endsWith(".internal")
+    unbracketed === "localhost" ||
+    unbracketed === "::1" ||
+    unbracketed === "::" ||
+    unbracketed === "0.0.0.0" ||
+    unbracketed === "169.254.169.254" || // AWS / GCP / Azure instance metadata
+    unbracketed === "metadata.google.internal" ||
+    unbracketed.endsWith(".localhost") ||
+    unbracketed.endsWith(".local") ||
+    unbracketed.endsWith(".internal")
   ) {
     return true;
   }
 
-  // IPv4 private address ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8, 169.254.0.0/16
-  const ipMatch = lower.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (ipMatch) {
-    const octets = ipMatch.slice(1, 5).map((s) => parseInt(s, 10));
-    if (octets[0] === 127 || octets[0] === 10 || octets[0] === 0) return true;
-    if (octets[0] === 169 && octets[1] === 254) return true;
-    if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) return true;
-    if (octets[0] === 192 && octets[1] === 168) return true;
+  // Check direct IPv4 formats (decimal, hex, dotted, short-form)
+  if (isPrivateIPv4(unbracketed)) {
+    return true;
+  }
+
+  // Check IPv6 loopback / unique local / link-local
+  if (net.isIPv6(unbracketed)) {
+    if (unbracketed === "::1" || unbracketed === "::") return true;
+    if (unbracketed.startsWith("fc") || unbracketed.startsWith("fd") || unbracketed.startsWith("fe80")) return true;
+  }
+
+  // Resolve DNS to verify the actual destination IP (prevents DNS rebinding / custom DNS SSRF)
+  try {
+    const addresses = await dns.lookup(unbracketed, { all: true });
+    for (const record of addresses) {
+      if (record.family === 4) {
+        if (isPrivateIPv4(record.address)) return true;
+      } else if (record.family === 6) {
+        const addr6 = record.address.toLowerCase();
+        if (addr6 === "::1" || addr6 === "::" || addr6.startsWith("fc") || addr6.startsWith("fd") || addr6.startsWith("fe80")) {
+          return true;
+        }
+      }
+    }
+  } catch {
+    // DNS resolution failure will be handled by fetch
   }
 
   return false;
@@ -89,7 +164,7 @@ export class WebFetchTool extends BaseTool {
         }
 
         // Validate hostname at initial request and on every redirect hop to prevent redirect-based SSRF
-        if (isForbiddenHost(parsedUrl.hostname)) {
+        if (await isForbiddenHost(parsedUrl.hostname)) {
           return {
             ok: false,
             isError: true,

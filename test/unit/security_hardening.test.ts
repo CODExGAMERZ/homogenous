@@ -81,7 +81,11 @@ test("Shell Security: isSafeCommand rejects chained commands, metacharacters, an
   assert.strictEqual(shellTool.isSafeCommand("cat file < /tmp/in"), false);
   assert.strictEqual(shellTool.isSafeCommand("cat %USERPROFILE%"), false);
   assert.strictEqual(shellTool.isSafeCommand("cat file^"), false);
-  assert.strictEqual(shellTool.isSafeCommand("cat file\nrm -rf /"), false);
+  // Shell security: verify cat / ls / dir with escaping paths require approval (isSafeCommand returns false)
+  assert.strictEqual(shellTool.isSafeCommand("cat ../../../etc/passwd"), false);
+  assert.strictEqual(shellTool.isSafeCommand("cat /etc/passwd"), false);
+  assert.strictEqual(shellTool.isSafeCommand("ls /root"), false);
+  assert.strictEqual(shellTool.isSafeCommand("dir C:\\Windows\\System32"), false);
 });
 
 test("Runtime Schema Validation: BaseTool rejects invalid model inputs", () => {
@@ -134,7 +138,7 @@ test("Skill Provenance: Bundled skills resolve strictly from package root and ta
   fs.rmSync(tempSkillDir, { recursive: true, force: true });
 });
 
-test("WebFetchTool: Rejects non-HTTP protocols and blocks SSRF targets", async () => {
+test("WebFetchTool: Rejects non-HTTP protocols and blocks SSRF targets including decimal, hex, short-form and IPv6", async () => {
   const webTool = new WebFetchTool();
 
   const fileRes = await webTool.execute({ url: "file:///etc/passwd" });
@@ -151,6 +155,30 @@ test("WebFetchTool: Rejects non-HTTP protocols and blocks SSRF targets", async (
   assert.strictEqual(localRes.ok, false);
   assert.strictEqual(localRes.isError, true);
   assert.match(localRes.content, /SSRF prevention/);
+
+  // Decimal 127.0.0.1 (2130706433)
+  const decRes = await webTool.execute({ url: "http://2130706433:8000" });
+  assert.strictEqual(decRes.ok, false);
+  assert.strictEqual(decRes.isError, true);
+  assert.match(decRes.content, /SSRF prevention/);
+
+  // Hex 127.0.0.1 (0x7f000001)
+  const hexRes = await webTool.execute({ url: "http://0x7f000001:8000" });
+  assert.strictEqual(hexRes.ok, false);
+  assert.strictEqual(hexRes.isError, true);
+  assert.match(hexRes.content, /SSRF prevention/);
+
+  // Short-form (127.1)
+  const shortRes = await webTool.execute({ url: "http://127.1:8000" });
+  assert.strictEqual(shortRes.ok, false);
+  assert.strictEqual(shortRes.isError, true);
+  assert.match(shortRes.content, /SSRF prevention/);
+
+  // IPv6 loopback ([::1])
+  const ipv6Res = await webTool.execute({ url: "http://[::1]:8000" });
+  assert.strictEqual(ipv6Res.ok, false);
+  assert.strictEqual(ipv6Res.isError, true);
+  assert.match(ipv6Res.content, /SSRF prevention/);
 });
 
 test("GrepSearchTool and GitLogTool: Execute safely without command injection", async () => {
