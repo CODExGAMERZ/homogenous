@@ -3,7 +3,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-Write-Host "`n✦ Installing Homogenous CLI v3.3.1 (Local-First Coding Assistant)..." -ForegroundColor Cyan
+Write-Host "`n✦ Installing Homogenous CLI v3.4.1 (Local-First Coding Assistant)..." -ForegroundColor Cyan
 
 # 1. Verify Node.js is installed
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
@@ -27,7 +27,7 @@ Write-Host "✓ Prerequisites verified." -ForegroundColor Green
 Write-Host "✦ Installing homogenous globally via npm..." -ForegroundColor Cyan
 
 try {
-    npm install -g homogenous@latest
+    npm install -g @codexgamerz/homogenous@latest
 } catch {
     # Fallback to local link if run from source repo
     if (Test-Path "package.json") {
@@ -40,6 +40,6 @@ try {
     }
 }
 
-Write-Host "`n✓ Homogenous CLI v3.3.1 installed successfully!" -ForegroundColor Green
+Write-Host "`n✓ Homogenous CLI v3.4.1 installed successfully!" -ForegroundColor Green
 Write-Host "`nTo get started, simply type:" -ForegroundColor Cyan
 Write-Host "  homogenous`n" -ForegroundColor White

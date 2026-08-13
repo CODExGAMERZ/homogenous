@@ -284,9 +284,12 @@ const AppContent: React.FC<AppProps> = ({
           } else if (item.type === "assistant") {
             return (
               <Box key={item.id} flexDirection="column" marginY={1}>
-                <Text bold color={theme.primary}>
-                  ✦ Assistant:
-                </Text>
+                <Box flexDirection="row" marginBottom={0.5}>
+                  <Text bold color={theme.primary}>
+                    ✦ Assistant
+                  </Text>
+                  <Text color={theme.muted}> ────────────────────────────────────────────────────────────</Text>
+                </Box>
                 <MarkdownText content={item.text} />
               </Box>
             );
@@ -313,9 +316,12 @@ const AppContent: React.FC<AppProps> = ({
       {/* Real-time Streaming Output Display */}
       {streamingText.length > 0 && (
         <Box flexDirection="column" marginY={1}>
-          <Text bold color={theme.primary}>
-            ✦ Assistant:
-          </Text>
+          <Box flexDirection="row" marginBottom={0.5}>
+            <Text bold color={theme.primary}>
+              ✦ Assistant
+            </Text>
+            <Text color={theme.muted}> ────────────────────────────────────────────────────────────</Text>
+          </Box>
           <MarkdownText content={streamingText} />
         </Box>
       )}

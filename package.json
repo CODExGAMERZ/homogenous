@@ -1,12 +1,12 @@
 {
-  "name": "homogenous",
-  "version": "3.3.1",
+  "name": "@codexgamerz/homogenous",
+  "version": "3.4.1",
   "description": "Local-First Agentic CLI Coding Assistant",
   "type": "module",
   "main": "./dist/src/cli/index.js",
   "types": "./dist/src/cli/index.d.ts",
   "bin": {
-    "homogenous": "./dist/bin/homogenous.js"
+    "homogenous": "dist/bin/homogenous.js"
   },
   "files": [
     "dist",
