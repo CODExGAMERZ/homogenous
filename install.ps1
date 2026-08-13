@@ -3,7 +3,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-Write-Host "`n✦ Installing Homogenous CLI v3.4.1 (Local-First Coding Assistant)..." -ForegroundColor Cyan
+Write-Host "`n✦ Installing Homogenous CLI v3.5.0 (Local-First Coding Assistant)..." -ForegroundColor Cyan
 
 # 1. Verify Node.js is installed
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
@@ -40,6 +40,6 @@ try {
     }
 }
 
-Write-Host "`n✓ Homogenous CLI v3.4.1 installed successfully!" -ForegroundColor Green
+Write-Host "`n✓ Homogenous CLI v3.5.0 installed successfully!" -ForegroundColor Green
 Write-Host "`nTo get started, simply type:" -ForegroundColor Cyan
 Write-Host "  homogenous`n" -ForegroundColor White

@@ -1,6 +1,6 @@
 {
   "name": "@codexgamerz/homogenous",
-  "version": "3.4.1",
+  "version": "3.5.0",
   "description": "Local-First Agentic CLI Coding Assistant",
   "type": "module",
   "main": "./dist/src/cli/index.js",
