@@ -35,12 +35,13 @@ test("MarkdownText.tokenizeInline correctly extracts bold, italic, code, and tex
   assert.strictEqual(tokens[6].text, " code.");
 });
 
-test("MarkdownText.getVisibleLength strips markdown and html tags correctly", () => {
+test("MarkdownText.getVisibleLength strips markdown, html tags, and ANSI escape sequences correctly", () => {
   assert.strictEqual(getVisibleLength("**Domain**"), 6);
   assert.strictEqual(getVisibleLength("*italic*"), 6);
   assert.strictEqual(getVisibleLength("`code`"), 4);
   assert.strictEqual(getVisibleLength("<b>HTML</b>"), 4);
   assert.strictEqual(getVisibleLength("Plain text"), 10);
+  assert.strictEqual(getVisibleLength("\u001b[38;2;255;46;209mPink Text\u001b[39m"), 9);
 });
 
 test("MarkdownText.wrapCellText handles <br> tags and wraps words within maxWidth", () => {
@@ -141,4 +142,20 @@ const greeting = "Hello world";
   assert.ok(codeBlock && codeBlock.type === "code");
   assert.strictEqual(codeBlock.lang, "typescript");
   assert.strictEqual(codeBlock.text, 'const greeting = "Hello world";');
+});
+
+test("MarkdownText.parseMarkdownBlocks correctly handles indented and unclosed code blocks from Ollama", () => {
+  const content = `3. Implementation:
+    \`\`\`python
+    class Node:
+        def __init__(self, data):
+            self.data = data
+`;
+
+  const blocks = parseMarkdownBlocks(content);
+  const codeBlock = blocks.find((b) => b.type === "code");
+  assert.ok(codeBlock && codeBlock.type === "code");
+  assert.strictEqual(codeBlock.lang, "python");
+  assert.ok(codeBlock.text.includes("class Node:"));
+  assert.ok(codeBlock.text.includes("self.data = data"));
 });

@@ -30,6 +30,7 @@ export interface FeedItem {
   id: string;
   type: "user" | "assistant" | "system" | "tool";
   text: string;
+  isChunk?: boolean;
   toolName?: string;
   toolInput?: Record<string, unknown>;
   toolStatus?: "pending" | "success" | "error";
@@ -232,15 +233,51 @@ const AppContent: React.FC<AppProps> = ({
         sessionMemory.addMessage({ role: "user", content: trimmed });
         setStreamingText("");
         const agent = new AgentLoop({ provider, model });
+
+        let isFirstChunk = true;
+        let accumulated = "";
+        let flushedLength = 0;
+
         const answer = await agent.run(sessionMemory.getMessages(), (delta) => {
-          setStreamingText((prev) => prev + delta);
+          accumulated += delta;
+          const unflushed = accumulated.slice(flushedLength);
+          const breakIdx = unflushed.lastIndexOf("\n\n");
+
+          if (breakIdx !== -1) {
+            const chunkToFlush = unflushed.slice(0, breakIdx + 2);
+            flushedLength += chunkToFlush.length;
+            const isFirst = isFirstChunk;
+            isFirstChunk = false;
+
+            setFeed((prev) => [
+              ...prev,
+              {
+                id: `assistant-chunk-${Date.now()}-${Math.random()}`,
+                type: "assistant",
+                text: chunkToFlush,
+                isChunk: !isFirst,
+              },
+            ]);
+            setStreamingText(accumulated.slice(flushedLength));
+          } else {
+            setStreamingText(unflushed);
+          }
         });
 
+        const remainingUnflushed = answer.slice(flushedLength);
         setStreamingText("");
-        setFeed((prev) => [
-          ...prev,
-          { id: `assistant-${Date.now()}`, type: "assistant", text: answer },
-        ]);
+        if (remainingUnflushed.trim()) {
+          const isFirst = isFirstChunk;
+          setFeed((prev) => [
+            ...prev,
+            {
+              id: `assistant-${Date.now()}`,
+              type: "assistant",
+              text: remainingUnflushed,
+              isChunk: !isFirst,
+            },
+          ]);
+        }
 
         await sessionMemory.compactIfNeeded(0.7);
       }
@@ -283,13 +320,15 @@ const AppContent: React.FC<AppProps> = ({
             );
           } else if (item.type === "assistant") {
             return (
-              <Box key={item.id} flexDirection="column" marginY={1}>
-                <Box flexDirection="row" marginBottom={0.5}>
-                  <Text bold color={theme.primary}>
-                    ✦ Assistant
-                  </Text>
-                  <Text color={theme.muted}> ────────────────────────────────────────────────────────────</Text>
-                </Box>
+              <Box key={item.id} flexDirection="column" marginY={item.isChunk ? 0 : 0.5}>
+                {!item.isChunk && (
+                  <Box flexDirection="row" marginBottom={0.5}>
+                    <Text bold color={theme.primary}>
+                      ✦ Assistant
+                    </Text>
+                    <Text color={theme.muted}> ────────────────────────────────────────────────────────────</Text>
+                  </Box>
+                )}
                 <MarkdownText content={item.text} />
               </Box>
             );
@@ -315,13 +354,15 @@ const AppContent: React.FC<AppProps> = ({
 
       {/* Real-time Streaming Output Display */}
       {streamingText.length > 0 && (
-        <Box flexDirection="column" marginY={1}>
-          <Box flexDirection="row" marginBottom={0.5}>
-            <Text bold color={theme.primary}>
-              ✦ Assistant
-            </Text>
-            <Text color={theme.muted}> ────────────────────────────────────────────────────────────</Text>
-          </Box>
+        <Box flexDirection="column" marginY={0.5}>
+          {feed.length === 0 || feed[feed.length - 1]?.type !== "assistant" ? (
+            <Box flexDirection="row" marginBottom={0.5}>
+              <Text bold color={theme.primary}>
+                ✦ Assistant
+              </Text>
+              <Text color={theme.muted}> ────────────────────────────────────────────────────────────</Text>
+            </Box>
+          ) : null}
           <MarkdownText content={streamingText} />
         </Box>
       )}

@@ -9,13 +9,39 @@ import type {
   Message,
 } from "../InferenceProvider.js";
 
+export function normalizeOllamaHost(rawHost?: string): string {
+  let h = (rawHost || process.env.OLLAMA_HOST || "http://127.0.0.1:11434").trim();
+  if (!h) h = "http://127.0.0.1:11434";
+
+  // Strip trailing API path segments if accidentally included in OLLAMA_HOST
+  h = h.replace(/\/api\/(chat|tags|embeddings)\/?$/i, "").replace(/\/+$/, "");
+
+  // Ensure scheme (http:// or https://)
+  if (!/^https?:\/\//i.test(h)) {
+    h = `http://${h}`;
+  }
+
+  // Map 0.0.0.0 bind address to 127.0.0.1 for client fetch requests
+  h = h.replace(/:\/\/0\.0\.0\.0(?::|$|\/)/i, (m) => m.replace("0.0.0.0", "127.0.0.1"));
+
+  try {
+    const urlObj = new URL(h);
+    if (!urlObj.port) {
+      urlObj.port = "11434";
+    }
+    return urlObj.toString().replace(/\/+$/, "");
+  } catch {
+    return "http://127.0.0.1:11434";
+  }
+}
+
 export class OllamaProvider implements InferenceProvider {
   readonly id = "ollama" as const;
   private host: string;
   private installedModels: string[] = [];
 
-  constructor(host: string = process.env.OLLAMA_HOST || "http://127.0.0.1:11434") {
-    this.host = host;
+  constructor(host?: string) {
+    this.host = normalizeOllamaHost(host);
   }
 
   async ping(): Promise<{ ok: boolean; models?: string[]; error?: string }> {
@@ -24,6 +50,9 @@ export class OllamaProvider implements InferenceProvider {
       const timeout = setTimeout(() => controller.abort(), 2000);
 
       let res = await fetch(`${this.host}/api/tags`, { signal: controller.signal }).catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch("http://127.0.0.1:11434/api/tags", { signal: controller.signal }).catch(() => null);
+      }
       if (!res || !res.ok) {
         res = await fetch("http://localhost:11434/api/tags", { signal: controller.signal }).catch(() => null);
       }
@@ -119,34 +148,36 @@ export class OllamaProvider implements InferenceProvider {
       }
     }
 
-    let res = await fetch(`${this.host}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: targetModel,
-        messages: formattedMsgs,
-        stream: false,
-      }),
-    });
-
-    if (!res.ok && res.status === 404 && this.installedModels.length > 0) {
-      // Retry with first installed model if primary target returned 404
-      targetModel = this.installedModels[0];
-      res = await fetch(`${this.host}/api/chat`, {
+    const postChat = async (hostUrl: string, m: string) => {
+      return fetch(`${hostUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: targetModel,
+          model: m,
           messages: formattedMsgs,
           stream: false,
         }),
-      });
+      }).catch(() => null);
+    };
+
+    let res = await postChat(this.host, targetModel);
+    if (!res || !res.ok) {
+      res = await postChat("http://127.0.0.1:11434", targetModel);
+    }
+    if (!res || !res.ok) {
+      res = await postChat("http://localhost:11434", targetModel);
     }
 
-    if (!res.ok) {
+    if (res && !res.ok && res.status === 404 && this.installedModels.length > 0) {
+      targetModel = this.installedModels[0];
+      res = await postChat(this.host, targetModel);
+    }
+
+    if (!res || !res.ok) {
+      const statusText = res ? `status ${res.status}` : "Connection refused";
       const available = this.installedModels.length > 0 ? `Installed models: [${this.installedModels.join(", ")}]` : "No models found in Ollama.";
       throw new Error(
-        `Ollama chat call for '${request.model}' failed with status ${res.status}. ${available}`
+        `Ollama chat call for '${request.model}' failed with ${statusText}. ${available}`
       );
     }
 

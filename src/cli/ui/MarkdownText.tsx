@@ -14,10 +14,16 @@ export interface MarkdownTextProps {
 // ---------------------------------------------------------------------------
 
 /**
- * Strips inline markdown tokens and HTML tags to calculate visible character count in monospace.
+ * Strips ANSI escape sequences, inline markdown tokens, and HTML tags to calculate visible character count in monospace.
  */
+export function stripAnsi(str: string): string {
+  if (!str) return "";
+  return str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=>]/g, "");
+}
+
 export function getVisibleLength(text: string): number {
-  return text
+  if (!text) return 0;
+  return stripAnsi(text)
     .replace(/<[^>]+>/g, "")
     .replace(/\*\*\*([^*]+)\*\*\*/g, "$1")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
@@ -490,21 +496,23 @@ export const MarkdownTableView: React.FC<{ table: MarkdownTableData; theme: Them
             }
 
             return (
-              <Box key={colIdx} flexDirection="row">
-                <Text>{" ".repeat(leftPad)}</Text>
-                {isHeader ? (
-                  <InlineMarkdown
-                    text={lineText}
-                    theme={theme}
-                    defaultColor={theme.primary}
-                    defaultBold={true}
-                  />
-                ) : (
-                  <InlineMarkdown text={lineText} theme={theme} />
-                )}
-                <Text>{" ".repeat(rightPad)}</Text>
+              <React.Fragment key={colIdx}>
+                <Box flexDirection="row" width={colWidths[colIdx]}>
+                  <Text>{" ".repeat(leftPad)}</Text>
+                  {isHeader ? (
+                    <InlineMarkdown
+                      text={lineText}
+                      theme={theme}
+                      defaultColor={theme.primary}
+                      defaultBold={true}
+                    />
+                  ) : (
+                    <InlineMarkdown text={lineText} theme={theme} />
+                  )}
+                  <Text>{" ".repeat(rightPad)}</Text>
+                </Box>
                 <Text color={theme.muted}>│</Text>
-              </Box>
+              </React.Fragment>
             );
           })}
         </Box>
@@ -548,145 +556,161 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
   if (!content) return blocks;
 
-  // 1. Extract fenced code blocks first
-  const codeBlockRegex = /```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)```/g;
-  let lastIndex = 0;
-  let codeMatch: RegExpExecArray | null;
+  const lines = content.split(/\r?\n/);
+  let i = 0;
 
-  const rawSegments: Array<{ isCode: boolean; text: string; lang?: string }> = [];
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
 
-  while ((codeMatch = codeBlockRegex.exec(content)) !== null) {
-    if (codeMatch.index > lastIndex) {
-      rawSegments.push({ isCode: false, text: content.slice(lastIndex, codeMatch.index) });
-    }
-    const lang = codeMatch[1].trim() || "code";
-    const code = codeMatch[2].trimEnd();
-    rawSegments.push({ isCode: true, text: code, lang });
-    lastIndex = codeMatch.index + codeMatch[0].length;
-  }
+    // 1. Fenced Code Block: starts with optional leading spaces + ``` or ~~~
+    const codeFenceMatch = line.match(/^(\s*)(```|~~~)([a-zA-Z0-9_-]*)/);
+    if (codeFenceMatch) {
+      const fenceMarker = codeFenceMatch[2];
+      const lang = codeFenceMatch[3].trim() || "code";
+      i++; // Skip opening fence line
 
-  if (lastIndex < content.length) {
-    rawSegments.push({ isCode: false, text: content.slice(lastIndex) });
-  }
+      const codeLines: string[] = [];
+      while (i < lines.length) {
+        const curLine = lines[i];
+        const closeMatch = curLine.match(/^(\s*)(```|~~~)\s*$/);
+        if (closeMatch && closeMatch[2] === fenceMarker) {
+          i++; // Skip closing fence line
+          break;
+        }
+        codeLines.push(curLine);
+        i++;
+      }
 
-  // 2. Parse non-code segments into block-level elements
-  for (const seg of rawSegments) {
-    if (seg.isCode) {
-      blocks.push({ type: "code", text: seg.text, lang: seg.lang || "code" });
+      blocks.push({
+        type: "code",
+        lang,
+        text: codeLines.join("\n"),
+      });
       continue;
     }
 
-    const lines = seg.text.split(/\r?\n/);
-    let i = 0;
-
-    while (i < lines.length) {
-      const line = lines[i];
-      const trimmed = line.trim();
-
-      // Empty blank line
-      if (!trimmed) {
-        i++;
-        continue;
-      }
-
-      // Horizontal rule: ---, ***, ___
-      if (/^(?:---+|\*\*\*+|___+)$/.test(trimmed)) {
-        blocks.push({ type: "rule" });
-        i++;
-        continue;
-      }
-
-      // Headings: # H1, ## H2, ### H3, #### H4
-      const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
-      if (headingMatch) {
-        blocks.push({
-          type: "heading",
-          level: headingMatch[1].length,
-          text: headingMatch[2].trim(),
-        });
-        i++;
-        continue;
-      }
-
-      // Blockquotes: > quote
-      if (line.startsWith(">")) {
-        const quoteLines: string[] = [];
-        while (i < lines.length && lines[i].trim().startsWith(">")) {
-          quoteLines.push(lines[i].replace(/^>\s?/, ""));
-          i++;
-        }
-        blocks.push({ type: "blockquote", text: quoteLines.join("\n").trim() });
-        continue;
-      }
-
-      // Markdown & ASCII Tables: Lines starting with |, │, ┌, ├, └, + or containing table delimiters
-      const isTableLine = (str: string) => {
-        const t = str.trim();
-        return (
-          t.startsWith("|") ||
-          t.startsWith("│") ||
-          t.startsWith("┌") ||
-          t.startsWith("├") ||
-          t.startsWith("+") ||
-          (t.includes("|") && !t.startsWith(">")) ||
-          (t.includes("│") && !t.startsWith(">"))
-        );
-      };
-
-      if (isTableLine(line) && i + 1 < lines.length && (isTableLine(lines[i + 1]) || lines[i + 1].includes("─"))) {
-        const tableLines: string[] = [];
-        while (i < lines.length && isTableLine(lines[i])) {
-          tableLines.push(lines[i]);
-          i++;
-        }
-        const parsedTable = parseMarkdownTable(tableLines);
-        if (parsedTable && parsedTable.headers.length > 0) {
-          blocks.push({ type: "table", tableData: parsedTable });
-          continue;
-        } else {
-          for (const tl of tableLines) {
-            blocks.push({ type: "paragraph", text: tl });
-          }
-          continue;
-        }
-      }
-
-      // Unordered or Ordered Lists
-      const bulletMatch = line.match(/^(\s*)([-*•])\s+(.*)$/);
-      const orderedMatch = line.match(/^(\s*)(\d+\.)\s+(.*)$/);
-
-      if (bulletMatch) {
-        const indent = Math.floor(bulletMatch[1].length / 2);
-        blocks.push({
-          type: "list_item",
-          ordered: false,
-          text: bulletMatch[3],
-          indent,
-        });
-        i++;
-        continue;
-      }
-
-      if (orderedMatch) {
-        const indent = Math.floor(orderedMatch[1].length / 2);
-        blocks.push({
-          type: "list_item",
-          ordered: true,
-          number: orderedMatch[2],
-          text: orderedMatch[3],
-          indent,
-        });
-        i++;
-        continue;
-      }
-
-      // Standard Paragraph
-      blocks.push({ type: "paragraph", text: line });
+    // 2. Empty blank line
+    if (!trimmed) {
       i++;
+      continue;
     }
+
+    // 3. Horizontal rule: ---, ***, ___
+    if (/^(?:---+|\*\*\*+|___+)$/.test(trimmed)) {
+      blocks.push({ type: "rule" });
+      i++;
+      continue;
+    }
+
+    // 4. Headings: # H1, ## H2, ### H3, #### H4
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      blocks.push({
+        type: "heading",
+        level: headingMatch[1].length,
+        text: headingMatch[2].trim(),
+      });
+      i++;
+      continue;
+    }
+
+    // 5. Blockquotes: > quote
+    if (line.startsWith(">")) {
+      const quoteLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith(">")) {
+        quoteLines.push(lines[i].replace(/^>\s?/, ""));
+        i++;
+      }
+      blocks.push({ type: "blockquote", text: quoteLines.join("\n").trim() });
+      continue;
+    }
+
+    // 6. Markdown & ASCII Tables
+    const isTableLine = (str: string) => {
+      const t = str.trim();
+      return (
+        t.startsWith("|") ||
+        t.startsWith("│") ||
+        t.startsWith("┌") ||
+        t.startsWith("├") ||
+        t.startsWith("+") ||
+        (t.includes("|") && !t.startsWith(">")) ||
+        (t.includes("│") && !t.startsWith(">"))
+      );
+    };
+
+    if (isTableLine(line) && i + 1 < lines.length && (isTableLine(lines[i + 1]) || lines[i + 1].includes("─"))) {
+      const tableLines: string[] = [];
+      while (i < lines.length && isTableLine(lines[i])) {
+        tableLines.push(lines[i]);
+        i++;
+      }
+      const parsedTable = parseMarkdownTable(tableLines);
+      if (parsedTable && parsedTable.headers.length > 0) {
+        blocks.push({ type: "table", tableData: parsedTable });
+        continue;
+      } else {
+        for (const tl of tableLines) {
+          blocks.push({ type: "paragraph", text: tl });
+        }
+        continue;
+      }
+    }
+
+    // 7. Unordered or Ordered Lists
+    const bulletMatch = line.match(/^(\s*)([-*•])\s+(.*)$/);
+    const orderedMatch = line.match(/^(\s*)(\d+\.)\s+(.*)$/);
+
+    if (bulletMatch) {
+      const indent = Math.floor(bulletMatch[1].length / 2);
+      blocks.push({
+        type: "list_item",
+        ordered: false,
+        text: bulletMatch[3],
+        indent,
+      });
+      i++;
+      continue;
+    }
+
+    if (orderedMatch) {
+      const indent = Math.floor(orderedMatch[1].length / 2);
+      blocks.push({
+        type: "list_item",
+        ordered: true,
+        number: orderedMatch[2],
+        text: orderedMatch[3],
+        indent,
+      });
+      i++;
+      continue;
+    }
+
+    // 8. Standard Paragraph
+    blocks.push({ type: "paragraph", text: line });
+    i++;
   }
 
-  return blocks;
+  // Post-process blocks to consolidate adjacent code blocks and discard empty code blocks
+  const consolidated: MarkdownBlock[] = [];
+  for (const b of blocks) {
+    if (b.type === "code") {
+      if (!b.text.trim()) continue; // Ignore empty code blocks
+
+      const last = consolidated[consolidated.length - 1];
+      if (last && last.type === "code") {
+        last.text = last.text + "\n\n" + b.text;
+        if (last.lang === "code" && b.lang !== "code") {
+          last.lang = b.lang;
+        }
+        continue;
+      }
+    }
+    consolidated.push(b);
+  }
+
+  return consolidated;
 }
 
 // ---------------------------------------------------------------------------
@@ -700,7 +724,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({ content }) => {
   // Register code blocks into CodeBlockStore for /copy command
   useEffect(() => {
     for (const block of blocks) {
-      if (block.type === "code") {
+      if (block.type === "code" && block.text.trim()) {
         CodeBlockStore.getInstance().addBlock(block.lang || "code", block.text);
       }
     }
@@ -786,6 +810,8 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({ content }) => {
           }
 
           case "code": {
+            if (!block.text.trim()) return null;
+
             const langLabel = block.lang ? ` ${block.lang.toUpperCase()} ` : " CODE ";
             let highlighted = block.text;
 
