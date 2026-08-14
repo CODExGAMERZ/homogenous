@@ -59,7 +59,12 @@ export class UserDefinedCommandLoader {
               prompt = prompt.replace(/\$@/g, args.join(" "));
 
               ctx.sessionMemory.addMessage({ role: "user", content: prompt });
-              const agent = new AgentLoop({ provider: ctx.provider, model: ctx.model });
+              const agent = new AgentLoop({
+                provider: ctx.provider,
+                model: ctx.model,
+                autoApprove: ctx.autoApproveEnabled,
+                workspaceRoot: ctx.workspacePath,
+              });
               const answer = await agent.run(ctx.sessionMemory.getMessages());
               return { output: answer };
             },

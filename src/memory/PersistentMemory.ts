@@ -71,6 +71,10 @@ export class PersistentMemory {
     return false;
   }
 
+  public clearFacts(): void {
+    fs.writeFileSync(this.factsFile, JSON.stringify([], null, 2), "utf-8");
+  }
+
   public getFormattedSystemFacts(): string {
     const facts = this.listFacts();
     if (facts.length === 0) return "";

@@ -78,7 +78,7 @@ export class McpClientManager {
         });
 
         const client = new Client(
-          { name: "homogenous-cli", version: "3.5.0" },
+          { name: "homogenous-cli", version: "3.7.0" },
           { capabilities: {} }
         );
 
@@ -126,6 +126,11 @@ export class McpClientManager {
 
   public getDiscoveredTools(): BaseTool[] {
     return this.mcpTools;
+  }
+
+  public async reloadServers(projectRoot: string = process.cwd()): Promise<BaseTool[]> {
+    await this.closeAll();
+    return this.initializeServers(projectRoot);
   }
 
   public async closeAll(): Promise<void> {

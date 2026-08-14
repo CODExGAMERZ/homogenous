@@ -57,4 +57,41 @@ export const modeCommands: SlashCommand[] = [
       };
     },
   },
+  {
+    name: "mode",
+    description: "Inspect or set the global agent execution mode (auto, plan, or normal)",
+    category: "edits",
+    usage: "/mode [auto|plan|normal]",
+    execute: async (args, ctx) => {
+      if (args.length === 0) {
+        let currentMode = "normal";
+        if (ctx.planModeEnabled) currentMode = "plan";
+        else if (ctx.autoApproveEnabled) currentMode = "auto";
+        return {
+          output: `✦ Current Execution Mode: ${currentMode.toUpperCase()}\n` +
+            `  • normal : Prompts execute directly; all shell commands require user approval.\n` +
+            `  • auto   : Non-destructive allowlisted inspection commands auto-execute; all other commands remain strictly gated.\n` +
+            `  • plan   : Prompts generate dry-run implementation plans requiring explicit /apply approval.\n\n` +
+            `To change mode, type: /mode [auto|plan|normal]`,
+        };
+      }
+
+      const targetMode = args[0].toLowerCase();
+      if (targetMode === "auto") {
+        ctx.setPlanModeEnabled?.(false);
+        ctx.setAutoApproveEnabled?.(true);
+        return { output: "✓ Switched mode to AUTO-APPROVE. Safe allowlisted commands will execute automatically." };
+      } else if (targetMode === "plan") {
+        ctx.setPlanModeEnabled?.(true);
+        ctx.setAutoApproveEnabled?.(false);
+        return { output: "✓ Switched mode to PLANNING. Prompts will generate dry-run implementation plans requiring /apply." };
+      } else if (targetMode === "normal") {
+        ctx.setPlanModeEnabled?.(false);
+        ctx.setAutoApproveEnabled?.(false);
+        return { output: "✓ Switched mode to NORMAL. All shell commands require interactive user approval." };
+      }
+
+      return { output: "Usage: /mode [auto|plan|normal]" };
+    },
+  },
 ];

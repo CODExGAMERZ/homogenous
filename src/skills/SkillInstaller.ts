@@ -82,6 +82,11 @@ export class SkillInstaller {
     }
 
     const skillName = loaded.metadata.name;
+    if (!/^[a-zA-Z0-9_-]+$/.test(skillName)) {
+      console.error(chalk.red(`Error: Invalid skill name '${skillName}'. Must be alphanumeric with dashes or underscores.`));
+      return false;
+    }
+
     const targetParentDir = global
       ? resolvePath(getGlobalConfigDir(), "skills")
       : resolvePath(projectRoot, ".homogenous", "skills");
@@ -97,5 +102,39 @@ export class SkillInstaller {
 
     SkillRegistry.getInstance().reloadSkills(projectRoot);
     return true;
+  }
+
+  /**
+   * Removes an installed skill pack cleanly.
+   */
+  public static removeSkill(
+    skillName: string,
+    global: boolean = false,
+    projectRoot: string = process.cwd()
+  ): boolean {
+    if (!skillName || !/^[a-zA-Z0-9_-]+$/.test(skillName)) {
+      console.error(chalk.red(`Error: Invalid skill name '${skillName}'. Must be alphanumeric with dashes or underscores.`));
+      return false;
+    }
+
+    const targetParentDir = global
+      ? resolvePath(getGlobalConfigDir(), "skills")
+      : resolvePath(projectRoot, ".homogenous", "skills");
+
+    const targetDir = resolvePath(targetParentDir, skillName);
+    if (!fs.existsSync(targetDir)) {
+      console.error(chalk.yellow(`Skill '${skillName}' is not installed at ${targetDir}`));
+      return false;
+    }
+
+    try {
+      fs.rmSync(targetDir, { recursive: true, force: true });
+      console.log(chalk.green(`✓ Skill '${skillName}' successfully removed.`));
+      SkillRegistry.getInstance().reloadSkills(projectRoot);
+      return true;
+    } catch (err) {
+      console.error(chalk.red(`Failed to remove skill '${skillName}': ${(err as Error).message}`));
+      return false;
+    }
   }
 }

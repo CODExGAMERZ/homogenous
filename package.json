@@ -1,7 +1,7 @@
 {
   "name": "@codexgamerz/homogenous",
-  "version": "3.5.0",
-  "description": "Local-First Agentic CLI Coding Assistant",
+  "version": "3.7.0",
+  "description": "Enterprise-grade local-first CLI coding assistant powered by multi-provider LLM inference, dynamic skills, and MCP tools",
   "type": "module",
   "main": "./dist/src/cli/index.js",
   "types": "./dist/src/cli/index.d.ts",

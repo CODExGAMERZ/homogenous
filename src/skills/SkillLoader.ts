@@ -54,7 +54,12 @@ export class SkillLoader {
       const body = fmMatch[2].trim();
       const metadata = yaml.parse(rawYaml) as SkillMetadata;
 
-      if (!metadata.name || !metadata.description) {
+      if (!metadata.name || typeof metadata.name !== "string" || !metadata.description) {
+        return null;
+      }
+
+      // Enforce strict safe alphanumeric skill name to prevent directory traversal
+      if (!/^[a-zA-Z0-9_-]+$/.test(metadata.name)) {
         return null;
       }
 

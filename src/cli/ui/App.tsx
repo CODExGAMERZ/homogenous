@@ -232,7 +232,12 @@ const AppContent: React.FC<AppProps> = ({
       } else {
         sessionMemory.addMessage({ role: "user", content: trimmed });
         setStreamingText("");
-        const agent = new AgentLoop({ provider, model });
+        const agent = new AgentLoop({
+          provider,
+          model,
+          autoApprove: autoApproveEnabled,
+          workspaceRoot: workspacePath,
+        });
 
         let isFirstChunk = true;
         let accumulated = "";

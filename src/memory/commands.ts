@@ -33,3 +33,10 @@ export function runForget(id: string): void {
     console.log(chalk.red(`✗ Fact with ID '${id}' not found.`));
   }
 }
+
+export function runMemoryClear(): void {
+  const memory = PersistentMemory.getInstance();
+  memory.clearFacts();
+  console.log(chalk.green("✓ All persistent facts cleared from .agentmemory/facts.json"));
+}
+

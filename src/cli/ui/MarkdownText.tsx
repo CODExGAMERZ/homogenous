@@ -116,7 +116,7 @@ export const InlineMarkdown: React.FC<{
           case "code":
             return (
               <Text key={i} bold color={theme.secondary}>
-                `{tok.text}`
+                {tok.text}
               </Text>
             );
           case "strikethrough":
@@ -498,18 +498,20 @@ export const MarkdownTableView: React.FC<{ table: MarkdownTableData; theme: Them
             return (
               <React.Fragment key={colIdx}>
                 <Box flexDirection="row" width={colWidths[colIdx]}>
-                  <Text>{" ".repeat(leftPad)}</Text>
-                  {isHeader ? (
-                    <InlineMarkdown
-                      text={lineText}
-                      theme={theme}
-                      defaultColor={theme.primary}
-                      defaultBold={true}
-                    />
-                  ) : (
-                    <InlineMarkdown text={lineText} theme={theme} />
-                  )}
-                  <Text>{" ".repeat(rightPad)}</Text>
+                  <Text wrap="truncate">
+                    {" ".repeat(leftPad)}
+                    {isHeader ? (
+                      <InlineMarkdown
+                        text={lineText}
+                        theme={theme}
+                        defaultColor={theme.primary}
+                        defaultBold={true}
+                      />
+                    ) : (
+                      <InlineMarkdown text={lineText} theme={theme} />
+                    )}
+                    {" ".repeat(rightPad)}
+                  </Text>
                 </Box>
                 <Text color={theme.muted}>│</Text>
               </React.Fragment>

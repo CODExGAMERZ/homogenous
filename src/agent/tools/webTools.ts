@@ -56,6 +56,28 @@ function isPrivateIPv4(ip: string): boolean {
 }
 
 /**
+ * Extracts embedded IPv4 addresses from IPv4-mapped or compatible IPv6 addresses.
+ */
+function extractEmbeddedIPv4(addr: string): string | null {
+  const match = addr.match(/(?:^|:)(?:ffff:)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i);
+  if (match) {
+    return match[1];
+  }
+  // Check hex-encoded IPv4 in IPv6 e.g. ::ffff:7f00:0001
+  const hexMatch = addr.match(/^(?:0*:)*ffff:([0-9a-fA-F]{1,4}):([0-9a-fA-F]{1,4})$/i);
+  if (hexMatch) {
+    const high = parseInt(hexMatch[1], 16);
+    const low = parseInt(hexMatch[2], 16);
+    const b1 = (high >> 8) & 0xff;
+    const b2 = high & 0xff;
+    const b3 = (low >> 8) & 0xff;
+    const b4 = low & 0xff;
+    return `${b1}.${b2}.${b3}.${b4}`;
+  }
+  return null;
+}
+
+/**
  * Checks if a hostname, resolved IP, or encoded address is a forbidden internal/cloud-metadata address (SSRF protection).
  */
 async function isForbiddenHost(hostname: string): Promise<boolean> {
@@ -78,6 +100,12 @@ async function isForbiddenHost(hostname: string): Promise<boolean> {
     return true;
   }
 
+  // Check IPv4-mapped IPv6 representations (e.g. ::ffff:127.0.0.1, ::ffff:7f00:1)
+  const embeddedIpv4 = extractEmbeddedIPv4(unbracketed);
+  if (embeddedIpv4 && isPrivateIPv4(embeddedIpv4)) {
+    return true;
+  }
+
   // Check direct IPv4 formats (decimal, hex, dotted, short-form)
   if (isPrivateIPv4(unbracketed)) {
     return true;
@@ -97,6 +125,8 @@ async function isForbiddenHost(hostname: string): Promise<boolean> {
         if (isPrivateIPv4(record.address)) return true;
       } else if (record.family === 6) {
         const addr6 = record.address.toLowerCase();
+        const embeddedDns = extractEmbeddedIPv4(addr6);
+        if (embeddedDns && isPrivateIPv4(embeddedDns)) return true;
         if (addr6 === "::1" || addr6 === "::" || addr6.startsWith("fc") || addr6.startsWith("fd") || addr6.startsWith("fe80")) {
           return true;
         }
@@ -179,7 +209,7 @@ export class WebFetchTool extends BaseTool {
           signal: controller.signal,
           redirect: "manual",
           headers: {
-            "User-Agent": "Homogenous-CLI/3.5.0",
+            "User-Agent": "Homogenous-CLI/3.7.0",
             Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5",
           },
         });

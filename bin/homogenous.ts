@@ -5,10 +5,11 @@ import chalk from "chalk";
 import { runRepl } from "../src/cli/repl.js";
 import { runOneshot } from "../src/cli/oneshot.js";
 import { runInit } from "../src/cli/init.js";
-import { runMemoryList, runRemember, runForget } from "../src/memory/commands.js";
+import { runMemoryList, runRemember, runForget, runMemoryClear } from "../src/memory/commands.js";
 import { SkillRegistry } from "../src/skills/SkillRegistry.js";
 import { SkillInstaller } from "../src/skills/SkillInstaller.js";
 import { McpConfigResolver } from "../src/mcp/config.js";
+import { McpClientManager } from "../src/mcp/McpClientManager.js";
 
 yargs(hideBin(process.argv))
   .scriptName("homogenous")
@@ -60,8 +61,8 @@ yargs(hideBin(process.argv))
       y
         .positional("action", {
           type: "string",
-          describe: "Memory action: list, remember, or forget",
-          choices: ["list", "remember", "forget"],
+          describe: "Memory action: list, add/remember, remove/forget, or clear",
+          choices: ["list", "add", "remember", "remove", "forget", "delete", "clear"],
           demandOption: true,
         })
         .positional("args", {
@@ -70,25 +71,27 @@ yargs(hideBin(process.argv))
           describe: "Fact string or ID parameter",
         }),
     async (argv) => {
-      const action = argv.action as string;
+      const action = (argv.action as string).toLowerCase();
       const argsArr = (argv.args as string[]) || [];
 
       if (action === "list") {
         runMemoryList();
-      } else if (action === "remember") {
+      } else if (action === "remember" || action === "add") {
         const factStr = argsArr.join(" ");
         if (!factStr) {
-          console.error("Usage: homogenous memory remember \"fact text\"");
+          console.error("Usage: homogenous memory add \"fact text\"");
         } else {
           runRemember(factStr);
         }
-      } else if (action === "forget") {
+      } else if (action === "forget" || action === "remove" || action === "delete") {
         const idStr = argsArr[0];
         if (!idStr) {
-          console.error("Usage: homogenous memory forget <fact-id>");
+          console.error("Usage: homogenous memory remove <fact-id>");
         } else {
           runForget(idStr);
         }
+      } else if (action === "clear") {
+        runMemoryClear();
       }
     }
   )
@@ -99,8 +102,8 @@ yargs(hideBin(process.argv))
       y
         .positional("action", {
           type: "string",
-          describe: "Action: list, create, or install",
-          choices: ["list", "create", "install"],
+          describe: "Action: list, create, install, or remove",
+          choices: ["list", "create", "install", "remove", "uninstall"],
           demandOption: true,
         })
         .positional("target", {
@@ -113,7 +116,7 @@ yargs(hideBin(process.argv))
           describe: "Install skill globally into ~/.homogenous/skills/",
         }),
     async (argv) => {
-      const action = argv.action as string;
+      const action = (argv.action as string).toLowerCase();
       const target = argv.target as string | undefined;
       const isGlobal = argv.global as boolean | undefined;
       const registry = SkillRegistry.getInstance();
@@ -134,14 +137,24 @@ yargs(hideBin(process.argv))
         if (!target) {
           console.error("Usage: homogenous skills create <skill-name>");
         } else {
-          const pathCreated = registry.createSkillScaffold(target);
-          console.log(chalk.green(`✓ Skill scaffolded at: ${pathCreated}`));
+          try {
+            const pathCreated = registry.createSkillScaffold(target);
+            console.log(chalk.green(`✓ Skill scaffolded at: ${pathCreated}`));
+          } catch (err) {
+            console.error(chalk.red(`Error: ${(err as Error).message}`));
+          }
         }
       } else if (action === "install") {
         if (!target) {
           console.error("Usage: homogenous skills install <local-path | registry-name>");
         } else {
           await SkillInstaller.installSkill(target, isGlobal);
+        }
+      } else if (action === "remove" || action === "uninstall") {
+        if (!target) {
+          console.error("Usage: homogenous skills remove <skill-name>");
+        } else {
+          SkillInstaller.removeSkill(target, isGlobal);
         }
       }
     }
@@ -152,12 +165,13 @@ yargs(hideBin(process.argv))
     (y) =>
       y.positional("action", {
         type: "string",
-        describe: "Action: list",
-        choices: ["list"],
+        describe: "Action: list or reload",
+        choices: ["list", "reload"],
         demandOption: true,
       }),
     async (argv) => {
-      if (argv.action === "list") {
+      const action = (argv.action as string).toLowerCase();
+      if (action === "list") {
         const servers = McpConfigResolver.loadMcpConfig();
         console.log(chalk.bold.cyan("\n--- Configured MCP Servers (.mcp.json) ---"));
         const entries = Object.entries(servers);
@@ -171,12 +185,16 @@ yargs(hideBin(process.argv))
           }
         }
         console.log();
+      } else if (action === "reload") {
+        const servers = McpConfigResolver.loadMcpConfig();
+        const tools = await McpClientManager.getInstance().reloadServers();
+        console.log(chalk.green(`✓ Reloaded MCP configuration (${Object.keys(servers).length} servers, ${tools.length} active tools)`));
       }
     }
   )
   .strict()
   .help()
   .alias("h", "help")
-  .version("3.5.0")
+  .version("3.7.0")
   .alias("v", "version")
   .parse();

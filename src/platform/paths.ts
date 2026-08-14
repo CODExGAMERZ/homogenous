@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
@@ -69,6 +70,26 @@ export function resolveWorkspacePath(
     throw new Error(
       `Access denied: Path '${requestedPath}' escapes workspace root '${normalizedRoot}' (workspace containment violation).`
     );
+  }
+
+  // Symlink containment check: if path exists on disk, ensure resolved realpath also resides within workspace realpath
+  if (fs.existsSync(resolvedTarget)) {
+    try {
+      const realTarget = normalizePath(fs.realpathSync(resolvedTarget));
+      const realRoot = normalizePath(fs.existsSync(normalizedRoot) ? fs.realpathSync(normalizedRoot) : normalizedRoot);
+      const checkRealRoot = isWindows ? realRoot.toLowerCase() : realRoot;
+      const checkRealTarget = isWindows ? realTarget.toLowerCase() : realTarget;
+      const isRealContained = checkRealTarget === checkRealRoot || checkRealTarget.startsWith(checkRealRoot + "/");
+      if (!isRealContained) {
+        throw new Error(
+          `Access denied: Symlink '${requestedPath}' points to '${realTarget}' outside workspace root '${realRoot}' (symlink containment violation).`
+        );
+      }
+    } catch (err: any) {
+      if (err.message && err.message.includes("Access denied")) {
+        throw err;
+      }
+    }
   }
 
   return resolvedTarget;

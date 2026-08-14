@@ -36,7 +36,12 @@ export const diffCommands: SlashCommand[] = [
       const applyPrompt = `Execute the following approved implementation plan:\n${planToApply.rawPlan}`;
       ctx.sessionMemory.addMessage({ role: "user", content: applyPrompt });
 
-      const agent = new AgentLoop({ provider: ctx.provider, model: ctx.model });
+      const agent = new AgentLoop({
+        provider: ctx.provider,
+        model: ctx.model,
+        autoApprove: ctx.autoApproveEnabled,
+        workspaceRoot: ctx.workspacePath,
+      });
       const resultText = await agent.run(ctx.sessionMemory.getMessages());
 
       return {

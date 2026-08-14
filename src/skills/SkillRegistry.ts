@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import chalk from "chalk";
 import { SkillLoader, type LoadedSkill } from "./SkillLoader.js";
+import { SkillInstaller } from "./SkillInstaller.js";
 import { resolvePath, getGlobalConfigDir } from "../platform/paths.js";
 
 export class SkillRegistry {
@@ -74,6 +75,10 @@ export class SkillRegistry {
   }
 
   public createSkillScaffold(skillName: string, projectRoot: string = process.cwd()): string {
+    if (!skillName || !/^[a-zA-Z0-9_-]+$/.test(skillName)) {
+      throw new Error(`Invalid skill name '${skillName}'. Must be alphanumeric with dashes or underscores.`);
+    }
+
     const targetDir = resolvePath(projectRoot, ".homogenous", "skills", skillName);
     if (!fs.existsSync(targetDir)) {
       fs.mkdirSync(targetDir, { recursive: true });
@@ -97,5 +102,9 @@ Provide detailed step-by-step instructions for the model when this skill trigger
     fs.writeFileSync(skillFilePath, scaffoldContent, "utf-8");
     this.reloadSkills(projectRoot);
     return skillFilePath;
+  }
+
+  public removeSkill(skillName: string, global: boolean = false, projectRoot: string = process.cwd()): boolean {
+    return SkillInstaller.removeSkill(skillName, global, projectRoot);
   }
 }

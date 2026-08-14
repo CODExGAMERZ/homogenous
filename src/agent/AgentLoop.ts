@@ -15,6 +15,8 @@ export interface AgentLoopOptions {
   provider: InferenceProvider;
   model: string;
   maxTurns?: number;
+  autoApprove?: boolean;
+  workspaceRoot?: string;
 }
 
 export class AgentLoop {
@@ -38,7 +40,10 @@ export class AgentLoop {
       new GitStatusTool(),
       new GitDiffTool(),
       new GitLogTool(),
-      new ShellExecuteTool(),
+      new ShellExecuteTool({
+        autoApprove: options.autoApprove,
+        workspaceRoot: options.workspaceRoot,
+      }),
       new WebFetchTool(),
     ];
 

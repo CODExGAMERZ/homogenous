@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import spawn from "cross-spawn";
 import os from "node:os";
 
@@ -13,6 +15,128 @@ export interface ShellExecOptions {
   env?: Record<string, string>;
   timeoutMs?: number;
   shell?: boolean | string;
+}
+
+/**
+ * Tokenizes a command line string into binary and arguments array without shell interpretation.
+ * Handles double quotes, single quotes, and escaped characters.
+ * Returns null if the command contains syntax errors (unterminated quotes, trailing backslash)
+ * or dangerous shell metacharacters.
+ */
+export function tokenizeCommandLine(commandStr: string): { binary: string; args: string[] } | null {
+  if (!commandStr || typeof commandStr !== "string") return null;
+
+  const trimmed = commandStr.trim();
+  if (!trimmed) return null;
+
+  // Reject raw shell metacharacters at boundary
+  if (/[;&|`$()<>\n\r%^]/.test(trimmed)) {
+    return null;
+  }
+
+  const tokens: string[] = [];
+  let currentToken = "";
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let isEscaped = false;
+  let hasTokenChar = false;
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const char = trimmed[i];
+
+    if (isEscaped) {
+      currentToken += char;
+      hasTokenChar = true;
+      isEscaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      if (inSingleQuote) {
+        // In POSIX single quotes, backslash is literal
+        currentToken += char;
+        hasTokenChar = true;
+      } else if (i === trimmed.length - 1) {
+        // Trailing backslash is an unclosed escape
+        isEscaped = true;
+      } else if (os.platform() === "win32") {
+        const nextChar = trimmed[i + 1];
+        // On Windows, escape if followed by quote, space, or another backslash
+        if (nextChar === '"' || nextChar === "'" || /\s/.test(nextChar) || nextChar === "\\") {
+          isEscaped = true;
+        } else {
+          currentToken += char;
+          hasTokenChar = true;
+        }
+      } else {
+        isEscaped = true;
+      }
+      continue;
+    }
+
+    if (char === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote;
+      hasTokenChar = true;
+      continue;
+    }
+
+    if (char === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+      hasTokenChar = true;
+      continue;
+    }
+
+    if (/\s/.test(char) && !inSingleQuote && !inDoubleQuote) {
+      if (hasTokenChar) {
+        tokens.push(currentToken);
+        currentToken = "";
+        hasTokenChar = false;
+      }
+      continue;
+    }
+
+    currentToken += char;
+    hasTokenChar = true;
+  }
+
+  // If ended in an escape or unclosed quote, fail tokenization
+  if (isEscaped || inSingleQuote || inDoubleQuote) {
+    return null;
+  }
+
+  if (hasTokenChar) {
+    tokens.push(currentToken);
+  }
+
+  if (tokens.length === 0) return null;
+
+  return {
+    binary: tokens[0],
+    args: tokens.slice(1),
+  };
+}
+
+/**
+ * Resolves a binary command from workspace node_modules/.bin (or .cmd on Windows)
+ * before falling back to system PATH.
+ */
+export function resolveLocalOrPathBinary(binary: string, workspaceRoot: string = process.cwd()): string {
+  const isWindows = os.platform() === "win32";
+  const localBinDir = path.join(workspaceRoot, "node_modules", ".bin");
+
+  if (isWindows) {
+    const candidateCmd = path.join(localBinDir, `${binary}.cmd`);
+    if (fs.existsSync(candidateCmd)) return candidateCmd;
+    const candidateExe = path.join(localBinDir, `${binary}.exe`);
+    if (fs.existsSync(candidateExe)) return candidateExe;
+    const candidatePs1 = path.join(localBinDir, `${binary}.ps1`);
+    if (fs.existsSync(candidatePs1)) return candidatePs1;
+  } else {
+    const candidate = path.join(localBinDir, binary);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return binary;
 }
 
 /**

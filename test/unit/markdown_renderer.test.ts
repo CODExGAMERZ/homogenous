@@ -159,3 +159,16 @@ test("MarkdownText.parseMarkdownBlocks correctly handles indented and unclosed c
   assert.ok(codeBlock.text.includes("class Node:"));
   assert.ok(codeBlock.text.includes("self.data = data"));
 });
+
+test("MarkdownText.wrapCellText cleanly handles inline code spans and trailing punctuation", () => {
+  const cell = "Usually implemented as a simple table `next[state][symbol]`.";
+  const wrapped = wrapCellText(cell, 40);
+
+  // Must not orphan single punctuation dot onto its own line
+  for (const line of wrapped) {
+    assert.notStrictEqual(line.trim(), ".");
+  }
+  assert.ok(wrapped.length <= 2);
+  assert.ok(wrapped.some((l) => l.includes("`next[state][symbol]`")));
+});
+

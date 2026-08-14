@@ -66,8 +66,9 @@ test("Shell Security: isSafeCommand rejects chained commands, metacharacters, an
   const shellTool = new ShellExecuteTool();
 
   // Allowed simple safe commands
-  assert.strictEqual(shellTool.isSafeCommand("git status"), true);
-  assert.strictEqual(shellTool.isSafeCommand("git diff"), true);
+  assert.strictEqual(shellTool.isSafeCommand("node -v"), true);
+  assert.strictEqual(shellTool.isSafeCommand("npm list"), true);
+  assert.strictEqual(shellTool.isSafeCommand("tsc --noEmit"), true);
   assert.strictEqual(shellTool.isSafeCommand("ls -la"), true);
   assert.strictEqual(shellTool.isSafeCommand("cat package.json"), true);
 
@@ -195,3 +196,63 @@ test("GrepSearchTool and GitLogTool: Execute safely without command injection", 
   const gitRes = await gitLog.execute({ count: 2 });
   assert.strictEqual(gitRes.ok, true);
 });
+
+test("Adversarial Security: ShellExecuteTool rejects tilde expansion (~)", () => {
+  const shellTool = new ShellExecuteTool();
+  assert.strictEqual(shellTool.isSafeCommand("cat ~/.ssh/id_rsa"), false);
+  assert.strictEqual(shellTool.isSafeCommand("cat ~/secret.txt"), false);
+  assert.strictEqual(shellTool.isSafeCommand("ls ~"), false);
+  assert.strictEqual(shellTool.isSafeCommand("type ~\\secret.txt"), false);
+});
+
+test("Adversarial Security: ShellExecuteTool rejects package.json script dereferencing (zero-trust)", () => {
+  const shellTool = new ShellExecuteTool({ autoApprove: true });
+  // npm test / run / npx must NEVER be auto-approved
+  assert.strictEqual(shellTool.isSafeCommand("npm test"), false);
+  assert.strictEqual(shellTool.isSafeCommand("npm run build"), false);
+  assert.strictEqual(shellTool.isSafeCommand("npm run typecheck"), false);
+  assert.strictEqual(shellTool.isSafeCommand("npx malicious-pkg"), false);
+  assert.strictEqual(shellTool.isSafeCommand("git push --force"), false);
+  assert.strictEqual(shellTool.isSafeCommand("node -e 'console.log(1)'"), false);
+});
+
+test("Adversarial Security: Skill name path traversal is blocked at parse & scaffold time", () => {
+  const registry = SkillRegistry.getInstance();
+
+  // 1. Frontmatter name traversal
+  const tempSkillDir = path.join(process.cwd(), "test", "scratch_traversal_skill");
+  fs.mkdirSync(tempSkillDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(tempSkillDir, "SKILL.md"),
+    `---\nname: ../../../../../../tmp/pwned\ndescription: Traversal attack\n---\nBody\n`
+  );
+
+  const parsed = SkillLoader.parseSkillFile(path.join(tempSkillDir, "SKILL.md"));
+  assert.strictEqual(parsed, null);
+  fs.rmSync(tempSkillDir, { recursive: true, force: true });
+
+  // 2. Scaffold name traversal
+  assert.throws(() => {
+    registry.createSkillScaffold("../../../evil_scaffold");
+  }, /Invalid skill name/i);
+});
+
+test("Adversarial Security: WebFetchTool blocks IPv4-mapped IPv6 addresses", async () => {
+  const webTool = new WebFetchTool();
+
+  // IPv4-mapped IPv6 loopback
+  const res1 = await webTool.execute({ url: "http://[::ffff:127.0.0.1]:8000" });
+  assert.strictEqual(res1.ok, false);
+  assert.match(res1.content, /SSRF prevention/);
+
+  // IPv4-mapped IPv6 cloud metadata
+  const res2 = await webTool.execute({ url: "http://[::ffff:169.254.169.254]/" });
+  assert.strictEqual(res2.ok, false);
+  assert.match(res2.content, /SSRF prevention/);
+
+  // IPv4-mapped IPv6 private 10.0.0.1
+  const res3 = await webTool.execute({ url: "http://[::ffff:10.0.0.1]:3000" });
+  assert.strictEqual(res3.ok, false);
+  assert.match(res3.content, /SSRF prevention/);
+});
+
