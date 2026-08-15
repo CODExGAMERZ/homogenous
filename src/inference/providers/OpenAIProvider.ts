@@ -10,6 +10,7 @@ import type {
   ContentBlock,
 } from "../InferenceProvider.js";
 import { KeychainService } from "../keychain.js";
+import { parseEmbeddedToolCalls } from "../toolParser.js";
 
 export class OpenAIProvider implements InferenceProvider {
   readonly id: InferenceProvider["id"] = "openai";
@@ -249,11 +250,13 @@ export class OpenAIProvider implements InferenceProvider {
     const choice = data.choices[0];
     const contentBlocks: ContentBlock[] = [];
 
-    if (choice.message?.content) {
-      contentBlocks.push({ type: "text", text: choice.message.content });
-    }
+    const rawContent = choice.message?.content || "";
 
-    if (choice.message?.tool_calls) {
+    if (choice.message?.tool_calls && choice.message.tool_calls.length > 0) {
+      if (rawContent) {
+        contentBlocks.push({ type: "text", text: rawContent });
+      }
+
       for (const tc of choice.message.tool_calls) {
         let parsedInput: Record<string, unknown> = {};
         try {
@@ -271,11 +274,34 @@ export class OpenAIProvider implements InferenceProvider {
           },
         });
       }
+    } else if (rawContent) {
+      // Fallback parser for open-weights models (like Llama 3.3 on NIM/vLLM) that output tool calls directly as JSON text
+      const extracted = parseEmbeddedToolCalls(rawContent);
+      if (extracted.toolCalls.length > 0) {
+        if (extracted.remainingText) {
+          contentBlocks.push({ type: "text", text: extracted.remainingText });
+        }
+        for (const tc of extracted.toolCalls) {
+          contentBlocks.push({
+            type: "tool_use",
+            toolCall: {
+              id: tc.id,
+              name: tc.name,
+              input: tc.input,
+            },
+          });
+        }
+      } else {
+        contentBlocks.push({ type: "text", text: rawContent });
+      }
     }
 
     let stopReason: ChatResponse["stopReason"] = "end_turn";
-    if (choice.finish_reason === "tool_calls") stopReason = "tool_use";
-    else if (choice.finish_reason === "length") stopReason = "max_tokens";
+    if (choice.finish_reason === "tool_calls" || contentBlocks.some((b) => b.type === "tool_use")) {
+      stopReason = "tool_use";
+    } else if (choice.finish_reason === "length") {
+      stopReason = "max_tokens";
+    }
 
     return {
       content: contentBlocks,

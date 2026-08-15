@@ -10,6 +10,7 @@ import { ToolOutputTruncator } from "../token-budget/ToolOutputTruncator.js";
 import { BudgetLedger } from "../token-budget/BudgetLedger.js";
 import { SkillRegistry } from "../skills/SkillRegistry.js";
 import { McpClientManager } from "../mcp/McpClientManager.js";
+import { parseEmbeddedToolCalls } from "../inference/toolParser.js";
 
 export interface AgentLoopOptions {
   provider: InferenceProvider;
@@ -134,9 +135,33 @@ export class AgentLoop {
       });
 
       // Check if assistant called any tools
-      const toolCalls = response.content.filter((b) => b.type === "tool_use");
+      let toolCalls = response.content.filter((b) => b.type === "tool_use");
 
-      if (toolCalls.length === 0 || response.stopReason !== "tool_use") {
+      if (toolCalls.length === 0) {
+        // Fallback: check if text blocks contain embedded tool calls (e.g. from open-weights models)
+        const textBlocks = response.content
+          .filter((b) => b.type === "text")
+          .map((b) => (b as { text: string }).text);
+        const fullText = textBlocks.join("\n").trim();
+
+        if (fullText) {
+          const extracted = parseEmbeddedToolCalls(fullText);
+          if (extracted.toolCalls.length > 0) {
+            for (const tc of extracted.toolCalls) {
+              toolCalls.push({
+                type: "tool_use",
+                toolCall: {
+                  id: tc.id,
+                  name: tc.name,
+                  input: tc.input,
+                },
+              });
+            }
+          }
+        }
+      }
+
+      if (toolCalls.length === 0 || (response.stopReason !== "tool_use" && toolCalls.length === 0)) {
         // Conversation turn completed, return final text content
         const textBlocks = response.content
           .filter((b) => b.type === "text")
