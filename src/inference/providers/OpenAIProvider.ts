@@ -165,6 +165,7 @@ export class OpenAIProvider implements InferenceProvider {
       },
     }));
 
+    let currentMaxTokens = request.maxTokens || 2048;
     const maxRetries = 3;
     let res: Response | undefined;
     let errText = "";
@@ -180,13 +181,21 @@ export class OpenAIProvider implements InferenceProvider {
           model: request.model || "gpt-4o",
           messages: formattedMsgs,
           tools: tools && tools.length > 0 ? tools : undefined,
-          max_tokens: request.maxTokens || 4096,
+          tool_choice: tools && tools.length > 0 ? "auto" : undefined,
+          max_tokens: currentMaxTokens,
           temperature: request.temperature,
         }),
       });
 
-      if (res.status === 429 && attempt < maxRetries) {
+      if (!res.ok && (res.status === 429 || res.status === 413) && attempt < maxRetries) {
         const retryHeader = res.headers.get("retry-after");
+        const errBody = await res.clone().text().catch(() => "");
+        
+        // If TPM or token budget is exceeded, reduce max_tokens and retry
+        if (errBody.includes("TPM") || errBody.includes("tokens per minute") || errBody.includes("Limit") || res.status === 413) {
+          currentMaxTokens = Math.max(512, Math.floor(currentMaxTokens / 2));
+        }
+
         let delayMs = retryHeader ? parseFloat(retryHeader) * 1000 : 1500 * (attempt + 1);
         if (isNaN(delayMs) || delayMs <= 0) delayMs = 1500 * (attempt + 1);
         delayMs = Math.min(delayMs, 5000);

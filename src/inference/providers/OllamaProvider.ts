@@ -7,7 +7,9 @@ import type {
   EmbedResponse,
   ProviderCapabilities,
   Message,
+  ContentBlock,
 } from "../InferenceProvider.js";
+import { parseEmbeddedToolCalls } from "../toolParser.js";
 
 export function normalizeOllamaHost(rawHost?: string): string {
   let h = (rawHost || process.env.OLLAMA_HOST || "http://127.0.0.1:11434").trim();
@@ -128,9 +130,33 @@ export class OllamaProvider implements InferenceProvider {
       if (typeof m.content === "string") {
         return { role: m.role, content: m.content };
       }
-      const textParts = m.content
-        .filter((b) => b.type === "text")
-        .map((b) => (b as { text: string }).text);
+      if (m.role === "assistant") {
+        const textParts = m.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text);
+        const toolUse = m.content.filter((b) => b.type === "tool_use") as Array<{ type: "tool_use"; toolCall: { id: string; name: string; input: Record<string, unknown> } }>;
+        if (toolUse.length > 0) {
+          return {
+            role: "assistant",
+            content: textParts.join("\n"),
+            tool_calls: toolUse.map((tu) => ({
+              function: {
+                name: tu.toolCall.name,
+                arguments: tu.toolCall.input,
+              },
+            })),
+          };
+        }
+        return { role: "assistant", content: textParts.join("\n") };
+      }
+
+      // User / tool_result
+      const toolResults = m.content.filter((b) => b.type === "tool_result") as Array<{ type: "tool_result"; toolCallId: string; content: string }>;
+      const textParts = m.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text);
+      if (toolResults.length > 0) {
+        return {
+          role: "tool",
+          content: toolResults.map((tr) => tr.content).join("\n"),
+        };
+      }
       return { role: m.role, content: textParts.join("\n") };
     });
   }
@@ -148,6 +174,15 @@ export class OllamaProvider implements InferenceProvider {
       }
     }
 
+    const tools = request.tools?.map((t) => ({
+      type: "function",
+      function: {
+        name: t.name,
+        description: t.description,
+        parameters: t.inputSchema,
+      },
+    }));
+
     const postChat = async (hostUrl: string, m: string) => {
       return fetch(`${hostUrl}/api/chat`, {
         method: "POST",
@@ -155,6 +190,7 @@ export class OllamaProvider implements InferenceProvider {
         body: JSON.stringify({
           model: m,
           messages: formattedMsgs,
+          tools: tools && tools.length > 0 ? tools : undefined,
           stream: false,
         }),
       }).catch(() => null);
@@ -181,12 +217,46 @@ export class OllamaProvider implements InferenceProvider {
       );
     }
 
-    const data = (await res.json()) as { message?: { content?: string } };
+    const data = (await res.json()) as { message?: { content?: string; tool_calls?: Array<{ function: { name: string; arguments: Record<string, unknown> } }> } };
     const textContent = data.message?.content || "";
+    const contentBlocks: ContentBlock[] = [];
+
+    if (data.message?.tool_calls && data.message.tool_calls.length > 0) {
+      if (textContent) contentBlocks.push({ type: "text", text: textContent });
+      for (const tc of data.message.tool_calls) {
+        contentBlocks.push({
+          type: "tool_use",
+          toolCall: {
+            id: `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            name: tc.function.name,
+            input: tc.function.arguments || {},
+          },
+        });
+      }
+    } else if (textContent) {
+      const extracted = parseEmbeddedToolCalls(textContent);
+      if (extracted.toolCalls.length > 0) {
+        if (extracted.remainingText) contentBlocks.push({ type: "text", text: extracted.remainingText });
+        for (const tc of extracted.toolCalls) {
+          contentBlocks.push({
+            type: "tool_use",
+            toolCall: {
+              id: tc.id,
+              name: tc.name,
+              input: tc.input,
+            },
+          });
+        }
+      } else {
+        contentBlocks.push({ type: "text", text: textContent });
+      }
+    }
+
+    const hasTools = contentBlocks.some((b) => b.type === "tool_use");
 
     return {
-      content: [{ type: "text", text: textContent }],
-      stopReason: "end_turn",
+      content: contentBlocks,
+      stopReason: hasTools ? "tool_use" : "end_turn",
       usage: {
         inputTokens: Math.ceil(JSON.stringify(formattedMsgs).length / 4),
         outputTokens: Math.ceil(textContent.length / 4),
@@ -200,6 +270,9 @@ export class OllamaProvider implements InferenceProvider {
     for (const block of response.content) {
       if (block.type === "text") {
         yield { type: "text_delta", textDelta: block.text };
+      } else if (block.type === "tool_use") {
+        yield { type: "tool_call_start", toolCall: block.toolCall };
+        yield { type: "tool_call_end", toolCall: block.toolCall };
       }
     }
     yield { type: "message_stop", usage: response.usage };

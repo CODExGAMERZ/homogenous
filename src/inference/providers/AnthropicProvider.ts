@@ -11,6 +11,7 @@ import type {
   Message,
 } from "../InferenceProvider.js";
 import { KeychainService } from "../keychain.js";
+import { parseEmbeddedToolCalls } from "../toolParser.js";
 
 export class AnthropicProvider implements InferenceProvider {
   readonly id = "anthropic" as const;
@@ -195,23 +196,42 @@ export class AnthropicProvider implements InferenceProvider {
       throw new Error("Anthropic API error: No response received.");
     }
 
-    const contentBlocks: ContentBlock[] = res.content.map((b) => {
+    const contentBlocks: ContentBlock[] = [];
+    for (const b of res.content) {
       if (b.type === "text") {
-        return { type: "text", text: b.text };
+        const extracted = parseEmbeddedToolCalls(b.text);
+        if (extracted.toolCalls.length > 0) {
+          if (extracted.remainingText) {
+            contentBlocks.push({ type: "text", text: extracted.remainingText });
+          }
+          for (const tc of extracted.toolCalls) {
+            contentBlocks.push({
+              type: "tool_use",
+              toolCall: {
+                id: tc.id,
+                name: tc.name,
+                input: tc.input,
+              },
+            });
+          }
+        } else {
+          contentBlocks.push({ type: "text", text: b.text });
+        }
       } else if (b.type === "tool_use") {
-        return {
+        contentBlocks.push({
           type: "tool_use",
           toolCall: {
             id: b.id,
             name: b.name,
             input: b.input as Record<string, unknown>,
           },
-        };
+        });
       }
-      return { type: "text", text: "" };
-    });
+    }
 
-    let stopReason: ChatResponse["stopReason"] = "end_turn";
+    const hasTools = contentBlocks.some((b) => b.type === "tool_use");
+
+    let stopReason: ChatResponse["stopReason"] = hasTools ? "tool_use" : "end_turn";
     if (res.stop_reason === "tool_use") stopReason = "tool_use";
     else if (res.stop_reason === "max_tokens") stopReason = "max_tokens";
     else if (res.stop_reason === "stop_sequence") stopReason = "stop_sequence";

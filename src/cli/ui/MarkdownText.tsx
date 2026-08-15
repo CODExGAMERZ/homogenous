@@ -719,9 +719,9 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
 // Main Component
 // ---------------------------------------------------------------------------
 
-export const MarkdownText: React.FC<MarkdownTextProps> = ({ content }) => {
+export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content }) => {
   const theme = useTheme();
-  const blocks = parseMarkdownBlocks(content);
+  const blocks = React.useMemo(() => parseMarkdownBlocks(content), [content]);
 
   // Register code blocks into CodeBlockStore for /copy command
   useEffect(() => {
@@ -730,7 +730,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({ content }) => {
         CodeBlockStore.getInstance().addBlock(block.lang || "code", block.text);
       }
     }
-  }, [content]);
+  }, [blocks]);
 
   return (
     <Box flexDirection="column">
@@ -863,4 +863,4 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({ content }) => {
       })}
     </Box>
   );
-};
+});

@@ -11,6 +11,7 @@ import { BudgetLedger } from "../token-budget/BudgetLedger.js";
 import { SkillRegistry } from "../skills/SkillRegistry.js";
 import { McpClientManager } from "../mcp/McpClientManager.js";
 import { parseEmbeddedToolCalls } from "../inference/toolParser.js";
+import { buildBaseSystemPrompt } from "./systemPrompt.js";
 
 export interface AgentLoopOptions {
   provider: InferenceProvider;
@@ -25,8 +26,10 @@ export class AgentLoop {
   private model: string;
   private maxTurns: number;
   private toolsMap: Map<string, BaseTool>;
+  private options: AgentLoopOptions;
 
   constructor(options: AgentLoopOptions) {
+    this.options = options;
     this.provider = options.provider;
     this.model = options.model;
     this.maxTurns = options.maxTurns || 15;
@@ -75,12 +78,7 @@ export class AgentLoop {
     if (!hasSystemMsg) {
       messages.unshift({
         role: "system",
-        content:
-          "You are Homogenous Agent, a helpful, precise local-first agentic coding assistant. " +
-          "Respond directly to user prompts, greetings, and code requests in clean, readable Markdown text. " +
-          "Do NOT wrap standard responses in XML tags. " +
-          "Do NOT execute shell commands just to test or demonstrate code snippets unless explicitly instructed by the user to run or execute commands. Provide written code directly in Markdown code blocks. " +
-          "Only call tools when you need to inspect workspace files, apply code edits, or perform necessary search operations.",
+        content: buildBaseSystemPrompt(this.options?.workspaceRoot || process.cwd()),
       });
     }
 

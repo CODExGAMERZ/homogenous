@@ -120,30 +120,55 @@ const AppContent: React.FC<AppProps> = ({
   else if (isProcessing) reactiveBorderColor = theme.primary;
 
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(0);
+  const cycleListRef = React.useRef<AutocompleteItem[]>([]);
+  const cycleIndexRef = React.useRef<number>(0);
+  const isCyclingRef = React.useRef<boolean>(false);
 
   const suggestions: AutocompleteItem[] = inputVal.startsWith("/")
-    ? AutocompleteEngine.getInstance().getSuggestions(inputVal)
+    ? (isCyclingRef.current && cycleListRef.current.length > 0
+        ? cycleListRef.current
+        : AutocompleteEngine.getInstance().getSuggestions(inputVal))
     : [];
+
+  const handleInputChange = (newVal: string) => {
+    isCyclingRef.current = false;
+    cycleListRef.current = [];
+    cycleIndexRef.current = 0;
+    setSelectedSuggestionIdx(0);
+    setInputVal(newVal);
+  };
 
   useEffect(() => {
     if (selectedSuggestionIdx >= suggestions.length) {
       setSelectedSuggestionIdx(0);
     }
-  }, [suggestions.length]);
+  }, [suggestions.length, selectedSuggestionIdx]);
 
   useInput(async (input, key) => {
     if (isProcessing) return;
 
-    if (key.tab && inputVal.startsWith("/") && suggestions.length > 0) {
-      if (key.shift) {
-        const prevIdx = (selectedSuggestionIdx - 1 + suggestions.length) % suggestions.length;
-        setSelectedSuggestionIdx(prevIdx);
-        setInputVal(suggestions[prevIdx].value);
-      } else {
-        const nextIdx = (selectedSuggestionIdx + 1) % suggestions.length;
-        setSelectedSuggestionIdx(nextIdx);
-        setInputVal(suggestions[selectedSuggestionIdx].value);
+    const isTab = key.tab || input === "\t" || input === "\x1b[Z";
+    const isShiftTab = (key.tab && key.shift) || input === "\x1b[Z";
+
+    if (isTab && inputVal.startsWith("/")) {
+      if (!isCyclingRef.current || cycleListRef.current.length === 0) {
+        const initial = AutocompleteEngine.getInstance().getSuggestions(inputVal);
+        if (initial.length === 0) return;
+        cycleListRef.current = initial;
+        isCyclingRef.current = true;
+        cycleIndexRef.current = 0;
+        setSelectedSuggestionIdx(0);
+        setInputVal(initial[0].value);
+        return;
       }
+
+      const list = cycleListRef.current;
+      const nextIdx = isShiftTab
+        ? (cycleIndexRef.current - 1 + list.length) % list.length
+        : (cycleIndexRef.current + 1) % list.length;
+      cycleIndexRef.current = nextIdx;
+      setSelectedSuggestionIdx(nextIdx);
+      setInputVal(list[nextIdx].value);
       return;
     }
 
@@ -254,9 +279,27 @@ const AppContent: React.FC<AppProps> = ({
         let isFirstChunk = true;
         let accumulated = "";
         let flushedLength = 0;
+        let lastRenderTime = 0;
+        let renderTimer: NodeJS.Timeout | null = null;
 
-        const answer = await agent.run(sessionMemory.getMessages(), (delta) => {
-          accumulated += delta;
+        const updateStreamingUI = (force = false) => {
+          const now = Date.now();
+          if (!force && now - lastRenderTime < 35) {
+            if (!renderTimer) {
+              renderTimer = setTimeout(() => {
+                renderTimer = null;
+                updateStreamingUI(true);
+              }, 35);
+            }
+            return;
+          }
+
+          if (renderTimer) {
+            clearTimeout(renderTimer);
+            renderTimer = null;
+          }
+          lastRenderTime = now;
+
           const unflushed = accumulated.slice(flushedLength);
           const breakIdx = unflushed.lastIndexOf("\n\n");
 
@@ -279,7 +322,17 @@ const AppContent: React.FC<AppProps> = ({
           } else {
             setStreamingText(unflushed);
           }
+        };
+
+        const answer = await agent.run(sessionMemory.getMessages(), (delta) => {
+          accumulated += delta;
+          updateStreamingUI(false);
         });
+
+        if (renderTimer) {
+          clearTimeout(renderTimer);
+          renderTimer = null;
+        }
 
         const remainingUnflushed = answer.slice(flushedLength);
         setStreamingText("");
@@ -436,7 +489,7 @@ const AppContent: React.FC<AppProps> = ({
           <Text bold color={theme.success}>
             {"homogenous > "}
           </Text>
-          <PromptInput value={inputVal} onChange={setInputVal} onSubmit={handleSubmit} />
+          <PromptInput value={inputVal} onChange={handleInputChange} onSubmit={handleSubmit} />
         </Box>
       )}
     </Box>

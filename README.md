@@ -1,11 +1,11 @@
-# ✦ HOMOGENOUS (v3.8.0)
+# ✦ HOMOGENOUS (v3.9.0)
 ### The Enterprise-Grade, Local-First, Zero-Overhead Agentic CLI Coding Assistant
 
-[![Version: 3.8.0](https://img.shields.io/badge/Version-3.8.0-00F0FF.svg?style=for-the-badge)](package.json)
+[![Version: 3.9.0](https://img.shields.io/badge/Version-3.9.0-00F0FF.svg?style=for-the-badge)](package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-39FF14.svg?style=for-the-badge)](LICENSE)
 [![TypeScript 5.0+](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20+-339933.svg?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Tests: 77 Passed](https://img.shields.io/badge/Tests-77%20Passed-39FF14.svg?style=for-the-badge)](test/)
+[![Tests: 80 Passed](https://img.shields.io/badge/Tests-80%20Passed-39FF14.svg?style=for-the-badge)](test/)
 [![Zero-Trust Security](https://img.shields.io/badge/Security-Zero--Trust%20Sandbox-FF2ED1.svg?style=for-the-badge)](README.md#-comprehensive-security-architecture)
 
 ```text
@@ -25,7 +25,7 @@
 ## 📋 Table of Contents
 
 - [✦ Executive Summary \& Design Philosophy](#-executive-summary--design-philosophy)
-- [🌟 What's New in Version 3.8.0](#-whats-new-in-version-380)
+- [🌟 What's New in Version 3.9.0](#-whats-new-in-version-390)
 - [⚡ Architectural Feature Breakdown](#-architectural-feature-breakdown)
 - [📦 Complete Installation Guide](#-complete-installation-guide)
 - [🚀 Execution Modes \& Command Line Options](#-execution-modes--command-line-options)
@@ -56,14 +56,21 @@ Homogenous is built around four fundamental engineering principles:
 
 ---
 
-## 🌟 What's New in Version 3.8.0
+## 🌟 What's New in Version 3.9.0
 
-Version 3.8.0 introduces automatic dual-layer tool call extraction from open-weights model text streams, an intelligent multi-phase autocomplete engine, full multi-line paste support, and NVIDIA NIM catalog synchronization:
+Version 3.9.0 introduces universal multi-format tool call parsing across all providers, Groq/Llama 3 inline function parsing, 30 FPS frame-throttled terminal streaming, adaptive TPM token budgeting, and state-tracked autocomplete cycling:
 
-* 🛠️ **Universal Tool Call Parser & Auto-Execution**: Intercepts JSON function calls and XML `<tool_call>` blocks emitted inside response content by open-weights models (NVIDIA Llama 3.3, Nemotron, vLLM), converting them to executable tool actions (`write_file`, `read_file`, etc.).
+* 🌐 **Universal Tool Call Parser**: Intercepts and executes function calls across all formats:
+  * **Groq / Llama 3 Inline**: `<function/write_file({...})>` and `<function:write_file({...})>`
+  * **Anthropic XML**: `<invoke name="write_file"><parameter name="path">...</parameter></invoke>`
+  * **OpenAI / Ollama XML**: `<tool_call>{...}</tool_call>` and `<function_call>{...}</function_call>`
+  * **Markdown JSON Codeblocks**: ` ```json {"name": "write_file", ...} ``` `
+  * **Balanced JSON Extraction**: Extracts JSON function blocks embedded in conversational paragraphs.
+* 🚀 **30 FPS Frame-Throttled Streaming & Memoization**: Batches streaming token deltas at ~30 FPS (35ms frame window) with AST memoization, eliminating terminal redraw storms, lag, and cursor stutter when moving, scrolling, or resizing the terminal window during code generation.
+* ⚡ **Adaptive TPM & Token Budgeting**: Automatically handles provider token-per-minute (TPM) caps and HTTP 413 errors by dynamically budgeting `max_tokens` and executing seamless backoff retries.
+* 🎯 **Authoritative Autonomous Directives**: Enforces that coding prompts ("create index.html", "write a game") always invoke `write_file` or `replace_file_content` directly rather than outputting raw chat text.
 * ⚡ **Intelligent Multi-Phase Autocomplete Engine**: Full autocomplete support across command names, subcommands (`/mode auto`, `/memory list`, `/skills create`, `/mcp reload`), providers (`/login nvidia`, `/login groq`), and active models, with interactive `Tab` / `Shift + Tab` cycling and active item indicators (`❯`).
-* 📋 **Full Multi-Line Input & Paste Engine**: Native support for pasting multi-line prompts directly from the clipboard without premature execution, plus `Shift + Enter` and `Ctrl + J` manual multi-line editing and full cursor navigation.
-* 🤖 **NVIDIA NIM Model Catalog Synchronization**: Updated active NVIDIA NIM models dynamically sorted by parameter capacity (from 550B Nemotron Ultra down to 1B lightweight models).
+* 📋 **Full Multi-Line Input & Paste Engine**: Native support for pasting multi-line prompts directly from the clipboard without premature execution, plus `Shift + Enter` and `Ctrl + J` manual multi-line editing and full cursor navigation (`Home`, `End`, arrows).
 * 📊 **Table Cell Wrapping & Inline Code Stability**: Refined cell line wrapping for inline code spans with adjacent punctuation, eliminating orphaned character wrapping and locking table border alignments.
 * 🛡️ **Zero-Trust Shell Execution & `execFileDirect`**: By default, all commands prompt for user approval. Under explicit Auto-Approve opt-in, only strict allowlisted read-only operations run automatically without shell interpolation.
 * ⚡ **Node-Native File Inspection**: `cat`, `type`, `head`, `tail`, `ls`, and `dir` execute Node-natively with symlink realpath containment, completely removing shell invocation overhead and cross-platform quirks.
@@ -108,7 +115,7 @@ Verify installation:
 
 ```bash
 homogenous --version
-# Output: 3.8.0
+# Output: 3.9.0
 ```
 
 ---
@@ -132,7 +139,7 @@ curl -fsSL https://raw.githubusercontent.com/CODExGAMERZ/homogenous/main/install
 Install from the pre-built production tarball:
 
 ```bash
-npm install -g codexgamerz-homogenous-3.8.0.tgz
+npm install -g codexgamerz-homogenous-3.9.0.tgz
 ```
 
 ---
@@ -215,9 +222,14 @@ When running in interactive REPL mode, use keyboard shortcuts for instant contro
 | `Ctrl + O` or `Ctrl + M` | `/model` | Open interactive AI model picker (sorted by parameter size) |
 | `Ctrl + A` | `/auto` | Toggle **Auto-Approve** mode for allowlisted inspection tools |
 | `Ctrl + L` | `/clear` | Clear conversation feed history |
+| `Home` or `Ctrl + A` | — | Jump cursor to start of line or prompt |
+| `End` or `Ctrl + E` | — | Jump cursor to end of line or prompt |
+| `Left / Right Arrows` | — | Navigate cursor character by character |
+| `Up / Down Arrows` | — | Navigate lines in multi-line prompt |
+| `Tab` | — | Cycle forward through slash command and subcommand autocomplete suggestions |
+| `Shift + Tab` | — | Cycle backward through autocomplete suggestions |
 | `Shift + Enter` or `Ctrl + J` | — | Insert a new line in the prompt bar (multi-line editing) |
 | `Enter` | — | Submit current prompt to the assistant |
-| `Tab` | — | Auto-complete slash commands in the prompt input |
 | `Esc` | `/exit` | Exit the Homogenous session |
 
 ---
@@ -524,7 +536,7 @@ CLI Tool/
 ├── skills/                         # Bundled Skill Packs (commit-message-generator, etc.)
 ├── install.ps1                     # Automated Windows PowerShell Installer
 ├── install.sh                      # Automated macOS / Linux Bash Installer
-├── package.json                    # Project Manifest (v3.8.0)
+├── package.json                    # Project Manifest (v3.9.0)
 ├── tsconfig.json                   # TypeScript Compiler Configuration
 └── README.md                       # Project Documentation
 ```
@@ -536,7 +548,7 @@ CLI Tool/
 Homogenous maintains an automated test suite covering tools, parsers, security sandboxes, and provider integrations:
 
 ```bash
-# Run full unit test suite (77 tests)
+# Run full unit test suite (80 tests)
 npm test
 
 # Run typescript compilation build
@@ -548,7 +560,7 @@ npm run typecheck
 
 ### Test Inventory Highlights
 - `agent_embedded_tool_exec.test.ts` — Tests automatic text tool call parsing and end-to-end file writing in AgentLoop.
-- `text_tool_calls.test.ts` — Tests extraction of JSON parameters, fenced markdown blocks, and `<tool_call>` XML tags.
+- `text_tool_calls.test.ts` — Tests extraction of JSON parameters, Groq/Llama 3 inline `<function/...>`, fenced markdown blocks, and `<tool_call>` XML tags.
 - `shell_tokenizer.test.ts` — Tests shell tokenization, argument vectors, quoted strings, and local binary resolution.
 - `full_functionality.test.ts` — Tests slash commands (`/mode`, `/memory`, `/mcp reload`, `/skills remove`), and audit logging.
 - `security_hardening.test.ts` — Tests workspace containment, symlink escape prevention, tilde rejection, zero-trust script defense, and IPv4-mapped IPv6 SSRF blocking.
@@ -562,15 +574,15 @@ npm run typecheck
 
 ### 1. Error: `Failed to parse URL from 0.0.0.0/api/chat`
 * **Cause**: `OLLAMA_HOST` was configured without an `http://` scheme or used `0.0.0.0`.
-* **Solution**: Upgrade to Homogenous **v3.8.0**, which automatically normalizes `0.0.0.0` to `http://127.0.0.1:11434`.
+* **Solution**: Upgrade to Homogenous **v3.9.0**, which automatically normalizes `0.0.0.0` to `http://127.0.0.1:11434`.
 
 ### 2. Table Column Borders Misaligned on Colored Text
 * **Cause**: ANSI color escape codes bloated string length calculations in terminal text nodes.
-* **Solution**: Homogenous v3.8.0 uses `stripAnsi()` prior to monospace column budgeting, locking table cell borders into fixed alignment.
+* **Solution**: Homogenous v3.9.0 uses `stripAnsi()` prior to monospace column budgeting, locking table cell borders into fixed alignment.
 
 ### 3. Terminal Scrollback Locked During Streaming
 * **Cause**: High-frequency dynamic component re-renders reset terminal scrollback cursor.
-* **Solution**: Homogenous v3.8.0 flushes completed paragraphs directly to terminal stdout, keeping the active re-render region to 1-2 lines.
+* **Solution**: Homogenous v3.9.0 flushes completed paragraphs directly to terminal stdout, keeping the active re-render region to 1-2 lines.
 
 ---
 

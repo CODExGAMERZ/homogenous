@@ -4,7 +4,7 @@
 
 set -e
 
-echo -e "\n\033[1;36m✦ Installing Homogenous CLI v3.8.0 (Local-First Coding Assistant)...\033[0m"
+echo -e "\n\033[1;36m✦ Installing Homogenous CLI v3.9.0 (Local-First Coding Assistant)...\033[0m"
 
 # 1. Verify Node.js
 if ! command -v node &> /dev/null; then
@@ -35,6 +35,6 @@ else
     npm install -g @codexgamerz/homogenous@latest
 fi
 
-echo -e "\n\033[1;32m✓ Homogenous CLI v3.8.0 installed successfully!\033[0m"
+echo -e "\n\033[1;32m✓ Homogenous CLI v3.9.0 installed successfully!\033[0m"
 echo -e "\n\033[1;36mTo start coding with Homogenous, run:\033[0m"
 echo -e "  \033[1;37mhomogenous\033[0m\n"
