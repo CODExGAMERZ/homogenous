@@ -26,11 +26,22 @@ export class GroqProvider extends OpenAIProvider {
         data.data
           ?.filter((m) => m.active !== false && !m.id.includes("whisper") && !m.id.includes("guard"))
           .map((m) => m.id) || [
+          "llama-3.3-70b-versatile",
+          "llama-3.3-70b-specdec",
+          "deepseek-r1-distill-llama-70b",
+          "llama-3.1-70b-versatile",
+          "llama-3.1-8b-instant",
+          "llama-3.2-90b-vision-preview",
+          "llama-3.2-11b-vision-preview",
+          "llama-3.2-3b-preview",
+          "llama-3.2-1b-preview",
+          "mixtral-8x7b-32768",
+          "gemma2-9b-it",
+          "qwen-2.5-coder-32b",
+          "qwen-2.5-32b",
+          "qwen/qwen3.6-27b",
           "openai/gpt-oss-120b",
           "openai/gpt-oss-20b",
-          "llama-3.3-70b-versatile",
-          "llama-3.1-8b-instant",
-          "qwen/qwen3.6-27b",
           "groq/compound",
         ];
       this.installedModels = models;

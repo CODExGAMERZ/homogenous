@@ -43,7 +43,15 @@ export class OpenAIProvider implements InferenceProvider {
       });
       if (!res.ok) return { ok: false, error: `HTTP ${res.status}: ${res.statusText}` };
       const data = (await res.json()) as { data?: Array<{ id: string }> };
-      const models = data.data?.map((m) => m.id) || ["gpt-4o", "gpt-4o-mini"];
+      const models = data.data?.map((m) => m.id) || [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "o3-mini",
+        "o1",
+        "o1-mini",
+        "chatgpt-4o-latest",
+        "gpt-4-turbo",
+      ];
       return { ok: true, models };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
@@ -170,21 +178,32 @@ export class OpenAIProvider implements InferenceProvider {
     let res: Response | undefined;
     let errText = "";
 
+    const isReasoning = request.model?.startsWith("o1") || request.model?.startsWith("o3");
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const payload: Record<string, any> = {
+        model: request.model || "gpt-4o",
+        messages: formattedMsgs,
+        tools: tools && tools.length > 0 ? tools : undefined,
+        tool_choice: tools && tools.length > 0 ? "auto" : undefined,
+      };
+
+      if (isReasoning) {
+        payload.max_completion_tokens = currentMaxTokens;
+      } else {
+        payload.max_tokens = currentMaxTokens;
+        if (request.temperature !== undefined) {
+          payload.temperature = request.temperature;
+        }
+      }
+
       res = await fetch(`${this.baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({
-          model: request.model || "gpt-4o",
-          messages: formattedMsgs,
-          tools: tools && tools.length > 0 ? tools : undefined,
-          tool_choice: tools && tools.length > 0 ? "auto" : undefined,
-          max_tokens: currentMaxTokens,
-          temperature: request.temperature,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok && (res.status === 429 || res.status === 413) && attempt < maxRetries) {
@@ -209,18 +228,26 @@ export class OpenAIProvider implements InferenceProvider {
     if (!res || !res.ok) {
       errText = res ? await res.text() : "Network error";
       if (res && res.status === 400 && errText.includes("tool_use_failed") && tools && tools.length > 0) {
+        const fallbackPayload: Record<string, any> = {
+          model: request.model || "gpt-4o",
+          messages: formattedMsgs,
+        };
+        if (isReasoning) {
+          fallbackPayload.max_completion_tokens = request.maxTokens || 4096;
+        } else {
+          fallbackPayload.max_tokens = request.maxTokens || 4096;
+          if (request.temperature !== undefined) {
+            fallbackPayload.temperature = request.temperature;
+          }
+        }
+
         const fallbackRes = await fetch(`${this.baseUrl}/chat/completions`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${apiKey}`,
           },
-          body: JSON.stringify({
-            model: request.model || "gpt-4o",
-            messages: formattedMsgs,
-            max_tokens: request.maxTokens || 4096,
-            temperature: request.temperature,
-          }),
+          body: JSON.stringify(fallbackPayload),
         });
         if (fallbackRes.ok) {
           const fallbackData = (await fallbackRes.json()) as any;

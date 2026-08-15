@@ -207,24 +207,33 @@ export class AutocompleteEngine {
               );
             } else if (p === "groq") {
               modelsList.push(
-                { id: "groq/openai/gpt-oss-120b", desc: "GPT-OSS 120B (Free Tier)" },
                 { id: "groq/llama-3.3-70b-versatile", desc: "Llama 3.3 70B (Free Tier)" },
-                { id: "groq/llama-3.1-8b-instant", desc: "Llama 3.1 8B Instant (Free Tier)" }
+                { id: "groq/llama-3.3-70b-specdec", desc: "Llama 3.3 SpecDec (Free Tier)" },
+                { id: "groq/deepseek-r1-distill-llama-70b", desc: "DeepSeek R1 70B Distill (Free Tier)" },
+                { id: "groq/qwen-2.5-coder-32b", desc: "Qwen 2.5 Coder 32B (Free Tier)" },
+                { id: "groq/llama-3.1-8b-instant", desc: "Llama 3.1 8B Instant (Free Tier)" },
+                { id: "groq/openai/gpt-oss-120b", desc: "GPT-OSS 120B (Free Tier)" }
               );
             } else if (p === "anthropic") {
               modelsList.push(
-                { id: "anthropic/claude-3-5-sonnet-20241022", desc: "Claude 3.5 Sonnet" },
-                { id: "anthropic/claude-3-5-haiku-20241022", desc: "Claude 3.5 Haiku" }
+                { id: "anthropic/claude-3-7-sonnet-20250219", desc: "Claude 3.7 Sonnet Hybrid Reasoning" },
+                { id: "anthropic/claude-3-5-sonnet-20241022", desc: "Claude 3.5 Sonnet v2" },
+                { id: "anthropic/claude-3-5-haiku-20241022", desc: "Claude 3.5 Haiku" },
+                { id: "anthropic/claude-3-opus-20240229", desc: "Claude 3 Opus" }
               );
             } else if (p === "openai") {
               modelsList.push(
                 { id: "openai/gpt-4o", desc: "GPT-4o Frontier" },
-                { id: "openai/gpt-4o-mini", desc: "GPT-4o Mini Fast" }
+                { id: "openai/o1", desc: "o1 Frontier Reasoning" },
+                { id: "openai/o3-mini", desc: "o3-mini Fast Reasoning" },
+                { id: "openai/o1-mini", desc: "o1-mini Reasoning" },
+                { id: "openai/gpt-4o-mini", desc: "GPT-4o Mini Fast" },
+                { id: "openai/chatgpt-4o-latest", desc: "ChatGPT-4o Continuous" }
               );
             } else if (p === "deepseek") {
               modelsList.push(
-                { id: "deepseek/deepseek-chat", desc: "DeepSeek V3" },
-                { id: "deepseek/deepseek-reasoner", desc: "DeepSeek R1" }
+                { id: "deepseek/deepseek-chat", desc: "DeepSeek V3 (671B MoE)" },
+                { id: "deepseek/deepseek-reasoner", desc: "DeepSeek R1 (671B Reasoning)" }
               );
             }
           }

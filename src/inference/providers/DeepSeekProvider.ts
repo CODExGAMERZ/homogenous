@@ -17,7 +17,10 @@ export class DeepSeekProvider extends OpenAIProvider {
       });
       if (!res.ok) return { ok: false, error: `HTTP ${res.status}: ${res.statusText}` };
       const data = (await res.json()) as { data?: Array<{ id: string }> };
-      const models = data.data?.map((m) => m.id) || ["deepseek-chat", "deepseek-reasoner"];
+      const models = data.data?.map((m) => m.id) || [
+        "deepseek-chat",
+        "deepseek-reasoner",
+      ];
       return { ok: true, models };
     } catch (err) {
       return { ok: false, error: (err as Error).message };

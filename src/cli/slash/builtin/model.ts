@@ -187,8 +187,10 @@ export const modelCommands: SlashCommand[] = [
           id: "anthropic",
           name: "Anthropic Claude",
           defaultModels: [
-            { name: "claude-3-5-sonnet-20241022", tag: "Sonnet Frontier (200B)" },
-            { name: "claude-3-5-haiku-20241022", tag: "Haiku Fast (8B)" },
+            { name: "claude-3-7-sonnet-20250219", tag: "Claude 3.7 Sonnet Hybrid Reasoning (200B)" },
+            { name: "claude-3-5-sonnet-20241022", tag: "Claude 3.5 Sonnet v2 (200B)" },
+            { name: "claude-3-5-haiku-20241022", tag: "Claude 3.5 Haiku (8B)" },
+            { name: "claude-3-opus-20240229", tag: "Claude 3 Opus (200B)" },
           ],
         },
         {
@@ -196,7 +198,11 @@ export const modelCommands: SlashCommand[] = [
           name: "OpenAI",
           defaultModels: [
             { name: "gpt-4o", tag: "GPT-4o Frontier (200B)" },
+            { name: "o1", tag: "o1 Frontier Reasoning (200B)" },
+            { name: "o3-mini", tag: "o3-mini Reasoning (8B)" },
+            { name: "o1-mini", tag: "o1-mini Fast Reasoning (8B)" },
             { name: "gpt-4o-mini", tag: "GPT-4o Mini Fast (8B)" },
+            { name: "chatgpt-4o-latest", tag: "ChatGPT-4o Latest (200B)" },
           ],
         },
         {
@@ -211,12 +217,14 @@ export const modelCommands: SlashCommand[] = [
           id: "groq",
           name: "Groq",
           defaultModels: [
-            { name: "openai/gpt-oss-120b", tag: "GPT-OSS 120B (Free Tier)" },
             { name: "llama-3.3-70b-versatile", tag: "Llama 3.3 70B (Free Tier)" },
-            { name: "groq/compound", tag: "Groq Compound 70B (Free Tier)" },
+            { name: "llama-3.3-70b-specdec", tag: "Llama 3.3 70B SpecDec (Free Tier)" },
+            { name: "deepseek-r1-distill-llama-70b", tag: "DeepSeek R1 70B Distill (Free Tier)" },
+            { name: "qwen-2.5-coder-32b", tag: "Qwen 2.5 Coder 32B (Free Tier)" },
             { name: "qwen/qwen3.6-27b", tag: "Qwen 3.6 27B (Free Tier)" },
-            { name: "openai/gpt-oss-20b", tag: "GPT-OSS 20B (Free Tier)" },
             { name: "llama-3.1-8b-instant", tag: "Llama 3.1 8B Instant (Free Tier)" },
+            { name: "openai/gpt-oss-120b", tag: "GPT-OSS 120B (Free Tier)" },
+            { name: "groq/compound", tag: "Groq Compound 70B (Free Tier)" },
           ],
         },
       ];

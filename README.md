@@ -321,11 +321,11 @@ Homogenous provides out-of-the-box support for 11 inference backends:
 | :--- | :--- | :--- | :--- | :--- |
 | `ollama` | **Ollama** | `qwen2.5-coder:1.5b` | Local / Offline | `http://127.0.0.1:11434` (auto-detected) |
 | `lmstudio` | **LM Studio** | Local Auto-detect | Local / Offline | `http://127.0.0.1:1234/v1` (auto-detected) |
-| `groq` | **Groq** | `gpt-oss-120b` | Cloud (Free Tier) | `/login groq <KEY>` or `GROQ_API_KEY` |
+| `groq` | **Groq** | `llama-3.3-70b-versatile` | Cloud (Free Tier) | `/login groq <KEY>` or `GROQ_API_KEY` |
 | `nvidia` | **Nvidia NIM** | `llama-3.3-70b-instruct` | Cloud (Frontier) | `/login nvidia <KEY>` or `NVIDIA_API_KEY` |
-| `anthropic` | **Anthropic** | `claude-3-5-sonnet-20241022` | Cloud | `/login anthropic <KEY>` or `ANTHROPIC_API_KEY` |
-| `openai` | **OpenAI** | `gpt-4o` | Cloud | `/login openai <KEY>` or `OPENAI_API_KEY` |
-| `deepseek` | **DeepSeek** | `deepseek-chat` | Cloud | `/login deepseek <KEY>` or `DEEPSEEK_API_KEY` |
+| `anthropic` | **Anthropic** | `claude-3-7-sonnet-20250219` | Cloud | `/login anthropic <KEY>` or `ANTHROPIC_API_KEY` |
+| `openai` | **OpenAI** | `gpt-4o` / `o3-mini` | Cloud | `/login openai <KEY>` or `OPENAI_API_KEY` |
+| `deepseek` | **DeepSeek** | `deepseek-chat` / `deepseek-reasoner` | Cloud | `/login deepseek <KEY>` or `DEEPSEEK_API_KEY` |
 | `openrouter` | **OpenRouter** | `anthropic/claude-3.5-sonnet` | Cloud Router | `/login openrouter <KEY>` or `OPENROUTER_API_KEY` |
 | `mistral` | **Mistral AI** | `mistral-large-latest` | Cloud | `/login mistral <KEY>` or `MISTRAL_API_KEY` |
 | `together` | **Together AI** | `meta-llama/Llama-3.3-70B` | Cloud | `/login together <KEY>` or `TOGETHER_API_KEY` |
