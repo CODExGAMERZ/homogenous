@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text, useApp, useInput, useStdout, Static } from "ink";
 import Spinner from "ink-spinner";
-import TextInput from "ink-text-input";
+import { PromptInput } from "./PromptInput.js";
 import { LogoBanner } from "./LogoBanner.js";
 import { ClaudeHeader } from "./ClaudeHeader.js";
 import { ToolCard } from "./ToolCard.js";
@@ -12,6 +12,7 @@ import { ProviderRegistry } from "../../inference/ProviderRegistry.js";
 import { SessionMemory } from "../../memory/SessionMemory.js";
 import { AgentLoop } from "../../agent/AgentLoop.js";
 import { SlashCommandRegistry } from "../slash/SlashCommandRegistry.js";
+import { AutocompleteEngine, type AutocompleteItem } from "../slash/AutocompleteEngine.js";
 import type { CommandContext, PendingPlan } from "../slash/SlashCommand.js";
 import { ConfigResolver } from "../../config/ConfigResolver.js";
 import { getGitBranch } from "../../platform/shell.js";
@@ -118,19 +119,30 @@ const AppContent: React.FC<AppProps> = ({
   else if (pendingPlan) reactiveBorderColor = theme.warning;
   else if (isProcessing) reactiveBorderColor = theme.primary;
 
-  const slashTerm = inputVal.startsWith("/") ? inputVal.slice(1).trim().split(/\s+/)[0].toLowerCase() : "";
-  const allCommands = SlashCommandRegistry.getInstance().listCommands();
-  const matchingCmds = inputVal.startsWith("/")
-    ? allCommands.filter((c) => c.name.toLowerCase().includes(slashTerm))
+  const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(0);
+
+  const suggestions: AutocompleteItem[] = inputVal.startsWith("/")
+    ? AutocompleteEngine.getInstance().getSuggestions(inputVal)
     : [];
+
+  useEffect(() => {
+    if (selectedSuggestionIdx >= suggestions.length) {
+      setSelectedSuggestionIdx(0);
+    }
+  }, [suggestions.length]);
 
   useInput(async (input, key) => {
     if (isProcessing) return;
 
-    if (key.tab && inputVal.startsWith("/")) {
-      const matches = SlashCommandRegistry.getInstance().autocomplete(inputVal);
-      if (matches.length > 0) {
-        setInputVal(matches[0] + " ");
+    if (key.tab && inputVal.startsWith("/") && suggestions.length > 0) {
+      if (key.shift) {
+        const prevIdx = (selectedSuggestionIdx - 1 + suggestions.length) % suggestions.length;
+        setSelectedSuggestionIdx(prevIdx);
+        setInputVal(suggestions[prevIdx].value);
+      } else {
+        const nextIdx = (selectedSuggestionIdx + 1) % suggestions.length;
+        setSelectedSuggestionIdx(nextIdx);
+        setInputVal(suggestions[selectedSuggestionIdx].value);
       }
       return;
     }
@@ -381,20 +393,31 @@ const AppContent: React.FC<AppProps> = ({
         </Box>
       )}
 
-      {/* Boxed Slash Command Autocomplete Suggestions Popup */}
-      {!isProcessing && inputVal.startsWith("/") && matchingCmds.length > 0 && (
+      {/* Enhanced Boxed Slash Command & Subcommand Autocomplete Suggestions Popup */}
+      {!isProcessing && inputVal.startsWith("/") && suggestions.length > 0 && (
         <Box flexDirection="column" borderStyle="round" borderColor={theme.warning} paddingX={1} marginY={0} marginTop={1}>
-          <Text bold color={theme.warning}>
-            ✦ Slash Commands (Tab to autocomplete):
-          </Text>
-          {matchingCmds.slice(0, 5).map((cmd) => (
-            <Box key={cmd.name}>
-              <Text bold color={theme.primary}>
-                /{cmd.name.padEnd(12)}
-              </Text>
-              <Text color={theme.muted}> - {cmd.description}</Text>
-            </Box>
-          ))}
+          <Box flexDirection="row" justifyContent="space-between" marginBottom={0.5}>
+            <Text bold color={theme.warning}>
+              ✦ Suggestions (Tab to cycle, Enter to select):
+            </Text>
+            <Text color={theme.muted}>
+              {Math.min(selectedSuggestionIdx + 1, suggestions.length)}/{suggestions.length}
+            </Text>
+          </Box>
+          {suggestions.slice(0, 6).map((item, idx) => {
+            const isSelected = idx === selectedSuggestionIdx;
+            return (
+              <Box key={`${item.value}-${idx}`} flexDirection="row">
+                <Text color={isSelected ? theme.success : theme.muted}>
+                  {isSelected ? "❯ " : "  "}
+                </Text>
+                <Text bold color={isSelected ? theme.success : theme.primary}>
+                  {item.display.padEnd(28)}
+                </Text>
+                <Text color={isSelected ? theme.primary : theme.muted}> - {item.description}</Text>
+              </Box>
+            );
+          })}
         </Box>
       )}
 
@@ -413,7 +436,7 @@ const AppContent: React.FC<AppProps> = ({
           <Text bold color={theme.success}>
             {"homogenous > "}
           </Text>
-          <TextInput value={inputVal} onChange={setInputVal} onSubmit={handleSubmit} />
+          <PromptInput value={inputVal} onChange={setInputVal} onSubmit={handleSubmit} />
         </Box>
       )}
     </Box>

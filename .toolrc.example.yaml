@@ -17,16 +17,27 @@ routing:
   complexEdit: anthropic/claude-3-5-sonnet-20241022
   planning: anthropic/claude-3-5-sonnet-20241022
 
-# API Key Credentials (Optional: can also be set via Environment Variables)
+# API Key Credentials (Optional: can also be set via /login <provider> <key> or Environment Variables)
 apiKeys:
+  nvidia: "nvapi-..."
+  groq: "gsk_..."
   anthropic: "sk-ant-..."
   openai: "sk-proj-..."
-  groq: "gsk_..."
+  deepseek: "sk-..."
+  openrouter: "sk-or-..."
+  mistral: "..."
+  together: "..."
 
 # Provider Fallback Sequence
 fallbackOrder:
   - ollama
   - lmstudio
   - groq
+  - nvidia
+  - deepseek
   - openai
   - anthropic
+  - openrouter
+  - mistral
+  - together
+

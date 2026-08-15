@@ -1,7 +1,7 @@
-# ✦ HOMOGENOUS (v3.7.0)
+# ✦ HOMOGENOUS (v3.7.6)
 ### The Enterprise-Grade, Local-First, Zero-Overhead Agentic CLI Coding Assistant
 
-[![Version: 3.7.0](https://img.shields.io/badge/Version-3.7.0-00F0FF.svg?style=for-the-badge)](package.json)
+[![Version: 3.7.6](https://img.shields.io/badge/Version-3.7.6-00F0FF.svg?style=for-the-badge)](package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-39FF14.svg?style=for-the-badge)](LICENSE)
 [![TypeScript 5.0+](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20+-339933.svg?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
@@ -25,7 +25,7 @@
 ## 📋 Table of Contents
 
 - [✦ Executive Summary \& Design Philosophy](#-executive-summary--design-philosophy)
-- [🌟 What's New in Version 3.7.0](#-whats-new-in-version-370)
+- [🌟 What's New in Version 3.7.6](#-whats-new-in-version-376)
 - [⚡ Architectural Feature Breakdown](#-architectural-feature-breakdown)
 - [📦 Complete Installation Guide](#-complete-installation-guide)
 - [🚀 Execution Modes \& Command Line Options](#-execution-modes--command-line-options)
@@ -56,10 +56,13 @@ Homogenous is built around four fundamental engineering principles:
 
 ---
 
-## 🌟 What's New in Version 3.7.0
+## 🌟 What's New in Version 3.7.6
 
-Version 3.7.0 introduces table cell formatting stability, zero-trust execution, and full CLI subcommand lifecycles:
+Version 3.7.6 introduces an intelligent multi-phase autocomplete engine, full multi-line paste support, NVIDIA NIM catalog synchronization sorted by parameter size, table cell formatting stability, and zero-trust execution:
 
+* ⚡ **Intelligent Multi-Phase Autocomplete Engine**: Full autocomplete support across command names, subcommands (`/mode auto`, `/memory list`, `/skills create`, `/mcp reload`), providers (`/login nvidia`, `/login groq`), and active models, with interactive `Tab` / `Shift + Tab` cycling and active item indicators (`❯`).
+* 📋 **Full Multi-Line Input & Paste Engine**: Native support for pasting multi-line prompts directly from the clipboard without premature execution, plus `Shift + Enter` and `Ctrl + J` manual multi-line editing and full cursor navigation.
+* 🤖 **NVIDIA NIM Model Catalog Synchronization**: Updated active NVIDIA NIM models dynamically sorted by parameter capacity (from 550B Nemotron Ultra down to 1B lightweight models).
 * 📊 **Table Cell Wrapping & Inline Code Stability**: Refined cell line wrapping for inline code spans with adjacent punctuation, eliminating orphaned character wrapping and locking table border alignments.
 * 🛡️ **Zero-Trust Shell Execution & `execFileDirect`**: By default, all commands prompt for user approval. Under explicit Auto-Approve opt-in, only strict allowlisted read-only operations run automatically without shell interpolation.
 * ⚡ **Node-Native File Inspection**: `cat`, `type`, `head`, `tail`, `ls`, and `dir` execute Node-natively with symlink realpath containment, completely removing shell invocation overhead and cross-platform quirks.
@@ -104,7 +107,7 @@ Verify installation:
 
 ```bash
 homogenous --version
-# Output: 3.7.0
+# Output: 3.7.6
 ```
 
 ---
@@ -128,7 +131,7 @@ curl -fsSL https://raw.githubusercontent.com/CODExGAMERZ/homogenous/main/install
 Install from the pre-built production tarball:
 
 ```bash
-npm install -g codexgamerz-homogenous-3.7.0.tgz
+npm install -g codexgamerz-homogenous-3.7.6.tgz
 ```
 
 ---
@@ -205,12 +208,14 @@ When running in interactive REPL mode, use keyboard shortcuts for instant contro
 
 | Shortcut | Command Equivalent | Description / Action |
 | :--- | :--- | :--- |
-| `Ctrl + P` | `/plan` | Toggle **Planning Mode** (generates plan before file edits) |
+| `Ctrl + P` | `/plan` | Toggle **Planning Mode** (generates dry-run plan before edits) |
 | `Ctrl + U` | `/undo` | Revert the last file modification step |
 | `Ctrl + D` | `/diff` | Display unified session diff of uncommitted file edits |
-| `Ctrl + O` or `Ctrl + M` | `/model` | Open interactive AI model & provider picker |
+| `Ctrl + O` or `Ctrl + M` | `/model` | Open interactive AI model picker (sorted by parameter size) |
 | `Ctrl + A` | `/auto` | Toggle **Auto-Approve** mode for allowlisted inspection tools |
 | `Ctrl + L` | `/clear` | Clear conversation feed history |
+| `Shift + Enter` or `Ctrl + J` | — | Insert a new line in the prompt bar (multi-line editing) |
+| `Enter` | — | Submit current prompt to the assistant |
 | `Tab` | — | Auto-complete slash commands in the prompt input |
 | `Esc` | `/exit` | Exit the Homogenous session |
 
@@ -220,17 +225,19 @@ When running in interactive REPL mode, use keyboard shortcuts for instant contro
 
 All slash commands can be typed directly into the REPL prompt:
 
-### `/model [provider/model-name]`
-Inspect active provider status or switch models interactively.
+### `/model [number | provider/model-name]`
+Inspect active provider status or switch models interactively, with all available models dynamically sorted from highest to lowest parameter capacity.
 * **Examples**:
-  - `/model` — Opens the interactive selection menu.
+  - `/model` — Opens the interactive selection menu sorted by parameters.
   - `/model 1` — Selects model option `#1`.
+  - `/model nvidia/meta/llama-3.3-70b-instruct` — Switches to NVIDIA Llama 3.3 70B.
   - `/model ollama/qwen2.5-coder:1.5b` — Switches to local Ollama Qwen model.
   - `/model groq/llama-3.3-70b-versatile` — Switches to Groq Llama 3.3.
 
 ### `/login <provider> <api-key>`
-Securely stores an API key for a cloud provider in `~/.homogenous/config.json`.
-* **Example**: `/login anthropic sk-ant-...`
+Securely stores an API key for a cloud provider in OS Keychain and `~/.homogenous/keys.json` (0600 mode) for permanent, user-isolated reuse across sessions.
+* **Supported Providers**: `nvidia`, `groq`, `anthropic`, `openai`, `deepseek`, `openrouter`, `mistral`, `together`.
+* **Example**: `/login nvidia nvapi-...`
 
 ### `/mode [auto|plan|normal]`
 Inspects or sets the global agent execution mode:
@@ -516,7 +523,7 @@ CLI Tool/
 ├── skills/                         # Bundled Skill Packs (commit-message-generator, etc.)
 ├── install.ps1                     # Automated Windows PowerShell Installer
 ├── install.sh                      # Automated macOS / Linux Bash Installer
-├── package.json                    # Project Manifest (v3.7.0)
+├── package.json                    # Project Manifest (v3.7.6)
 ├── tsconfig.json                   # TypeScript Compiler Configuration
 └── README.md                       # Project Documentation
 ```
@@ -552,15 +559,15 @@ npm run typecheck
 
 ### 1. Error: `Failed to parse URL from 0.0.0.0/api/chat`
 * **Cause**: `OLLAMA_HOST` was configured without an `http://` scheme or used `0.0.0.0`.
-* **Solution**: Upgrade to Homogenous **v3.7.0**, which automatically normalizes `0.0.0.0` to `http://127.0.0.1:11434`.
+* **Solution**: Upgrade to Homogenous **v3.7.6**, which automatically normalizes `0.0.0.0` to `http://127.0.0.1:11434`.
 
 ### 2. Table Column Borders Misaligned on Colored Text
 * **Cause**: ANSI color escape codes bloated string length calculations in terminal text nodes.
-* **Solution**: Homogenous v3.7.0 uses `stripAnsi()` prior to monospace column budgeting, locking table cell borders into fixed alignment.
+* **Solution**: Homogenous v3.7.6 uses `stripAnsi()` prior to monospace column budgeting, locking table cell borders into fixed alignment.
 
 ### 3. Terminal Scrollback Locked During Streaming
 * **Cause**: High-frequency dynamic component re-renders reset terminal scrollback cursor.
-* **Solution**: Homogenous v3.7.0 flushes completed paragraphs directly to terminal stdout, keeping the active re-render region to 1-2 lines.
+* **Solution**: Homogenous v3.7.6 flushes completed paragraphs directly to terminal stdout, keeping the active re-render region to 1-2 lines.
 
 ---
 
