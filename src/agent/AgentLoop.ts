@@ -12,6 +12,32 @@ import { SkillRegistry } from "../skills/SkillRegistry.js";
 import { McpClientManager } from "../mcp/McpClientManager.js";
 import { parseEmbeddedToolCalls } from "../inference/toolParser.js";
 import { buildBaseSystemPrompt } from "./systemPrompt.js";
+import { KeychainService, type KeyProvider } from "../inference/keychain.js";
+
+/**
+ * Scrubs all known active API keys and sensitive token patterns from text before appending to LLM memory.
+ */
+export function scrubSensitiveTokens(text: string): string {
+  if (!text || typeof text !== "string") return text;
+  let scrubbed = text;
+
+  // 1. Scrub specific registered API keys
+  const providers: KeyProvider[] = ["anthropic", "openai", "groq", "nvidia", "deepseek", "openrouter", "mistral", "together"];
+  for (const p of providers) {
+    const key = KeychainService.getApiKey(p);
+    if (key && key.length > 5 && scrubbed.includes(key)) {
+      scrubbed = scrubbed.split(key).join("[REDACTED_API_KEY]");
+    }
+  }
+
+  // 2. Scrub standard regex token formats
+  scrubbed = scrubbed.replace(
+    /(?:bearer\s+[A-Za-z0-9_.-]{16,}|sk-[A-Za-z0-9_.-]{20,}|gsk_[A-Za-z0-9_.-]{20,}|nvapi-[A-Za-z0-9_.-]{20,}|ghp_[A-Za-z0-9_.-]{20,}|gho_[A-Za-z0-9_.-]{20,}|glpat-[A-Za-z0-9_.-]{20,}|AKIA[0-9A-Z]{16}|enc:v1:[a-f0-9:]+)/gi,
+    "[REDACTED_SECRET]"
+  );
+
+  return scrubbed;
+}
 
 export interface AgentLoopOptions {
   provider: InferenceProvider;
@@ -218,14 +244,14 @@ export class AgentLoop {
           resultBlocks.push({
             type: "tool_result",
             toolCallId: id,
-            content: truncated.content,
+            content: scrubSensitiveTokens(truncated.content),
             isError: rawResult.isError ?? !rawResult.ok,
           });
         } catch (err) {
           resultBlocks.push({
             type: "tool_result",
             toolCallId: id,
-            content: `Execution exception in tool '${name}': ${(err as Error).message}`,
+            content: scrubSensitiveTokens(`Execution exception in tool '${name}': ${(err as Error).message}`),
             isError: true,
           });
         }

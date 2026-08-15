@@ -10,6 +10,14 @@ export interface MemoryFact {
   updated_by: string;
 }
 
+function sanitizeFact(text: string): string {
+  if (!text) return text;
+  return text.replace(
+    /(?:bearer\s+[A-Za-z0-9_.-]{16,}|sk-[A-Za-z0-9_.-]{20,}|gsk_[A-Za-z0-9_.-]{20,}|nvapi-[A-Za-z0-9_.-]{20,}|ghp_[A-Za-z0-9_.-]{20,}|gho_[A-Za-z0-9_.-]{20,}|glpat-[A-Za-z0-9_.-]{20,}|AKIA[0-9A-Z]{16}|enc:v1:[a-f0-9:]+)/gi,
+    "[REDACTED]"
+  );
+}
+
 export class PersistentMemory {
   private static instance: PersistentMemory;
   private memoryDir: string;
@@ -48,9 +56,10 @@ export class PersistentMemory {
 
   public addFact(fact: string, category: MemoryFact["category"] = "general", author: string = os.userInfo().username || "user"): MemoryFact {
     const facts = this.listFacts();
+    const cleanFact = sanitizeFact(fact);
     const newFact: MemoryFact = {
       id: `fact-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      fact,
+      fact: cleanFact,
       category,
       updated_at: new Date().toISOString(),
       updated_by: author,

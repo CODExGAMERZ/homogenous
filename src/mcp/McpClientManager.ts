@@ -71,14 +71,40 @@ export class McpClientManager {
 
     for (const [serverName, cfg] of Object.entries(configs)) {
       try {
+        // Sanitize inherited environment variables to prevent leaking parent process API credentials
+        const sanitizedParentEnv: Record<string, string> = {};
+        for (const [k, v] of Object.entries(process.env)) {
+          if (v === undefined) continue;
+          const upperKey = k.toUpperCase();
+          // Filter out all API keys, secrets, tokens, and private inference provider credentials
+          if (
+            upperKey.includes("API_KEY") ||
+            upperKey.includes("_SECRET") ||
+            upperKey.includes("AUTH_TOKEN") ||
+            upperKey.includes("PRIVATE_KEY") ||
+            upperKey.startsWith("ANTHROPIC_") ||
+            upperKey.startsWith("OPENAI_") ||
+            upperKey.startsWith("NVIDIA_") ||
+            upperKey.startsWith("DEEPSEEK_") ||
+            upperKey.startsWith("GROQ_") ||
+            upperKey.startsWith("OPENROUTER_") ||
+            upperKey.startsWith("MISTRAL_") ||
+            upperKey.startsWith("TOGETHER_") ||
+            upperKey.startsWith("HOMOGENOUS_")
+          ) {
+            continue;
+          }
+          sanitizedParentEnv[k] = v;
+        }
+
         const transport = new StdioClientTransport({
           command: cfg.command,
           args: cfg.args || [],
-          env: { ...process.env, ...(cfg.env || {}) } as Record<string, string>,
+          env: { ...sanitizedParentEnv, ...(cfg.env || {}) } as Record<string, string>,
         });
 
         const client = new Client(
-          { name: "homogenous-cli", version: "3.9.5" },
+          { name: "homogenous-cli", version: "4.0.0" },
           { capabilities: {} }
         );
 

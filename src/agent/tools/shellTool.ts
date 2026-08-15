@@ -4,7 +4,7 @@ import { z } from "zod";
 import { BaseTool, type ToolResult } from "./BaseTool.js";
 import { execCommand, execFileDirect, tokenizeCommandLine, resolveLocalOrPathBinary } from "../../platform/shell.js";
 import { promptCommandApproval } from "../../cli/ui/ConfirmPrompt.js";
-import { resolveWorkspacePath, normalizePath, getProjectMemoryDir } from "../../platform/paths.js";
+import { resolveWorkspacePath, normalizePath, getProjectMemoryDir, isSensitiveSecurityPath } from "../../platform/paths.js";
 
 export interface ShellToolOptions {
   autoApprove?: boolean;
@@ -33,10 +33,13 @@ function recordAuditLog(entry: AuditLogEntry, workspaceRoot: string = process.cw
     const memoryDir = getProjectMemoryDir(workspaceRoot);
     if (fs.existsSync(memoryDir)) {
       const logFile = path.join(memoryDir, "audit.log");
-      // Sanitize log entry to prevent token exposure
+      // Sanitize log entry to prevent token and secret key exposure
       const safeEntry = {
         ...entry,
-        command: entry.command.replace(/(bearer\s+[A-Za-z0-9_.-]+|sk-[A-Za-z0-9_.-]+|gsk_[A-Za-z0-9_.-]+)/gi, "[REDACTED]"),
+        command: entry.command.replace(
+          /(bearer\s+[A-Za-z0-9_.-]+|sk-[A-Za-z0-9_.-]+|gsk_[A-Za-z0-9_.-]+|nvapi-[A-Za-z0-9_.-]+|ghp_[A-Za-z0-9_.-]+|gho_[A-Za-z0-9_.-]+|glpat-[A-Za-z0-9_.-]+|AKIA[0-9A-Z]{16}|enc:v1:[a-f0-9:]+)/gi,
+          "[REDACTED]"
+        ),
       };
       fs.appendFileSync(logFile, JSON.stringify(safeEntry) + "\n", { encoding: "utf-8", mode: 0o600 });
     }
@@ -109,8 +112,10 @@ export class ShellExecuteTool extends BaseTool {
 
       for (const targetPath of pathArgs) {
         if (targetPath.includes("~")) return false;
+        if (isSensitiveSecurityPath(targetPath)) return false;
         try {
-          resolveWorkspacePath(workspaceRoot, targetPath);
+          const resolved = resolveWorkspacePath(workspaceRoot, targetPath);
+          if (isSensitiveSecurityPath(resolved)) return false;
         } catch {
           return false;
         }
@@ -168,8 +173,13 @@ export class ShellExecuteTool extends BaseTool {
       if (bin === "ls" || bin === "dir") {
         const targetRel = pathArgs[0] || ".";
         const absTarget = resolveWorkspacePath(workspaceRoot, targetRel);
+        if (isSensitiveSecurityPath(absTarget) || isSensitiveSecurityPath(targetRel)) {
+          return { ok: false, isError: true, content: `Access denied: Directory '${targetRel}' is a restricted security path.` };
+        }
         const entries = fs.readdirSync(absTarget, { withFileTypes: true });
-        const lines = entries.map((e) => `${e.isDirectory() ? "[DIR] " : "      "}${e.name}`);
+        const lines = entries
+          .filter((e) => !isSensitiveSecurityPath(path.join(absTarget, e.name)))
+          .map((e) => `${e.isDirectory() ? "[DIR] " : "      "}${e.name}`);
         const content = lines.length > 0 ? lines.join("\n") : "(empty directory)";
         recordAuditLog({
           timestamp: new Date().toISOString(),
@@ -188,6 +198,9 @@ export class ShellExecuteTool extends BaseTool {
         }
         const targetRel = pathArgs[0];
         const absTarget = resolveWorkspacePath(workspaceRoot, targetRel);
+        if (isSensitiveSecurityPath(absTarget) || isSensitiveSecurityPath(targetRel)) {
+          return { ok: false, isError: true, content: `Access denied: File '${targetRel}' is a protected security credential/vault path.` };
+        }
         if (!fs.existsSync(absTarget)) {
           return { ok: false, isError: true, content: `Error: File '${targetRel}' does not exist.` };
         }

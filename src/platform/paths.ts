@@ -113,3 +113,65 @@ export function getProjectConfigFile(projectRoot: string = process.cwd()): strin
 export function getProjectMemoryDir(projectRoot: string = process.cwd()): string {
   return resolvePath(projectRoot, ".agentmemory");
 }
+
+/**
+ * Checks if a file path points to a sensitive security credential vault, private key, or cloud auth file.
+ */
+export function isSensitiveSecurityPath(filePath: string): boolean {
+  if (!filePath) return false;
+  const normalized = normalizePath(filePath).toLowerCase();
+
+  // 1. Homogenous encrypted API key vault
+  if (
+    normalized === ".homogenous/keys.json" ||
+    normalized.endsWith("/.homogenous/keys.json") ||
+    (normalized.endsWith("/keys.json") && normalized.includes(".homogenous"))
+  ) {
+    return true;
+  }
+
+  // 2. SSH private keys and sensitive config
+  if (
+    normalized.startsWith(".ssh/") ||
+    normalized.includes("/.ssh/") ||
+    /(?:^|\/)\.ssh\/(id_[a-zA-Z0-9_-]+|.*\.key)$/.test(normalized)
+  ) {
+    // Exclude public keys (.pub)
+    if (!normalized.endsWith(".pub")) {
+      return true;
+    }
+  }
+
+  // 3. Cloud CLI credentials and token files
+  if (
+    normalized.startsWith(".aws/") ||
+    normalized.includes("/.aws/") ||
+    normalized.startsWith(".azure/") ||
+    normalized.includes("/.azure/") ||
+    normalized.startsWith(".config/gcloud/") ||
+    normalized.includes("/.config/gcloud/") ||
+    normalized.startsWith(".gnupg/") ||
+    normalized.includes("/.gnupg/")
+  ) {
+    return true;
+  }
+
+  // 4. Git / Package manager credential files
+  if (
+    normalized.endsWith("/.git-credentials") ||
+    normalized === ".git-credentials" ||
+    normalized.endsWith("/.netrc") ||
+    normalized === ".netrc" ||
+    normalized.endsWith("/.npmrc") ||
+    normalized === ".npmrc"
+  ) {
+    return true;
+  }
+
+  // 5. Private certificate / key store extensions
+  if (/\.(pem|key|p12|pfx|pkcs12|kdbx)$/i.test(normalized)) {
+    return true;
+  }
+
+  return false;
+}

@@ -9,7 +9,7 @@ import { ThemeProvider, useTheme } from "./themes/ThemeContext.js";
 import type { InferenceProvider } from "../../inference/InferenceProvider.js";
 import { ProviderRegistry } from "../../inference/ProviderRegistry.js";
 import { SessionMemory } from "../../memory/SessionMemory.js";
-import { AgentLoop } from "../../agent/AgentLoop.js";
+import { AgentLoop, scrubSensitiveTokens } from "../../agent/AgentLoop.js";
 import { SlashCommandRegistry } from "../slash/SlashCommandRegistry.js";
 import { AutocompleteEngine, type AutocompleteItem } from "../slash/AutocompleteEngine.js";
 import type { CommandContext, PendingPlan } from "../slash/SlashCommand.js";
@@ -385,7 +385,7 @@ const AppContent: React.FC<AppProps> = ({
         {
           id: `err-${Date.now()}`,
           type: "system",
-          text: `Error: ${(err as Error).message}`,
+          text: `Error: ${scrubSensitiveTokens((err as Error).message)}`,
         },
       ]);
     } finally {

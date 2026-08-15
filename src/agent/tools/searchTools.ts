@@ -3,7 +3,7 @@ import path from "node:path";
 import { z } from "zod";
 import { BaseTool, type ToolResult } from "./BaseTool.js";
 import { execFileDirect } from "../../platform/shell.js";
-import { resolveWorkspacePath } from "../../platform/paths.js";
+import { resolveWorkspacePath, isSensitiveSecurityPath } from "../../platform/paths.js";
 
 export class GrepSearchTool extends BaseTool {
   readonly name = "grep_search";
@@ -56,6 +56,9 @@ export class GrepSearchTool extends BaseTool {
           continue;
         }
         const fullPath = path.join(dir, entry.name);
+        if (isSensitiveSecurityPath(fullPath)) {
+          continue;
+        }
         if (entry.isDirectory()) {
           walk(fullPath, depth + 1);
         } else if (entry.isFile()) {
@@ -86,6 +89,13 @@ export class GrepSearchTool extends BaseTool {
     let absSearchDir: string;
     try {
       absSearchDir = resolveWorkspacePath(process.cwd(), searchPath);
+      if (isSensitiveSecurityPath(absSearchDir)) {
+        return {
+          ok: false,
+          isError: true,
+          content: `Access denied: Searching restricted security/vault path '${searchPath}' is forbidden.`,
+        };
+      }
     } catch (err) {
       return {
         ok: false,
@@ -100,10 +110,20 @@ export class GrepSearchTool extends BaseTool {
       const result = await execFileDirect("rg", args, { timeoutMs: 15000 });
 
       if (result.exitCode === 0 && result.stdout.trim()) {
-        return {
-          ok: true,
-          content: `Search results for '${query}':\n\n${result.stdout.trim()}`,
-        };
+        const filteredLines = result.stdout
+          .trim()
+          .split(/\r?\n/)
+          .filter((line) => {
+            const filePathPart = line.split(":")[0];
+            return !isSensitiveSecurityPath(filePathPart);
+          });
+
+        if (filteredLines.length > 0) {
+          return {
+            ok: true,
+            content: `Search results for '${query}':\n\n${filteredLines.join("\n")}`,
+          };
+        }
       }
 
       if (result.exitCode === 1) {
@@ -199,6 +219,9 @@ export class GlobFilesTool extends BaseTool {
             continue;
           }
           const fullPath = path.join(dir, entry.name);
+          if (isSensitiveSecurityPath(fullPath)) {
+            continue;
+          }
           if (entry.isDirectory()) {
             walkDir(fullPath, depth + 1);
           } else if (entry.isFile()) {

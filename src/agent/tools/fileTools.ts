@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { BaseTool, type ToolResult } from "./BaseTool.js";
-import { resolveWorkspacePath } from "../../platform/paths.js";
+import { resolveWorkspacePath, isSensitiveSecurityPath } from "../../platform/paths.js";
 import { DiffEngine } from "../../token-budget/DiffEngine.js";
 
 export class ReadFileTool extends BaseTool {
@@ -40,6 +40,13 @@ export class ReadFileTool extends BaseTool {
 
     try {
       const absPath = resolveWorkspacePath(process.cwd(), filePath);
+      if (isSensitiveSecurityPath(absPath) || isSensitiveSecurityPath(filePath)) {
+        return {
+          ok: false,
+          isError: true,
+          content: `Access denied: '${filePath}' is a protected security credential/vault path.`,
+        };
+      }
       if (!fs.existsSync(absPath)) {
         return {
           ok: false,
@@ -102,6 +109,13 @@ export class WriteFileTool extends BaseTool {
 
     try {
       const absPath = resolveWorkspacePath(process.cwd(), filePath);
+      if (isSensitiveSecurityPath(absPath) || isSensitiveSecurityPath(filePath)) {
+        return {
+          ok: false,
+          isError: true,
+          content: `Access denied: Modification of protected security credential/vault path '${filePath}' is restricted.`,
+        };
+      }
       const parentDir = path.dirname(absPath);
 
       if (!fs.existsSync(parentDir)) {
@@ -161,6 +175,13 @@ export class ReplaceFileContentTool extends BaseTool {
 
     try {
       const absPath = resolveWorkspacePath(process.cwd(), filePath);
+      if (isSensitiveSecurityPath(absPath) || isSensitiveSecurityPath(filePath)) {
+        return {
+          ok: false,
+          isError: true,
+          content: `Access denied: Modification of protected security credential/vault path '${filePath}' is restricted.`,
+        };
+      }
       if (!fs.existsSync(absPath)) {
         return {
           ok: false,

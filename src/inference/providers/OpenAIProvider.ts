@@ -206,7 +206,7 @@ export class OpenAIProvider implements InferenceProvider {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok && (res.status === 429 || res.status === 413) && attempt < maxRetries) {
+      if (!res.ok && (res.status === 429 || res.status === 413 || res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504) && attempt < maxRetries) {
         const retryHeader = res.headers.get("retry-after");
         const errBody = await res.clone().text().catch(() => "");
         
@@ -215,9 +215,9 @@ export class OpenAIProvider implements InferenceProvider {
           currentMaxTokens = Math.max(512, Math.floor(currentMaxTokens / 2));
         }
 
-        let delayMs = retryHeader ? parseFloat(retryHeader) * 1000 : 1500 * (attempt + 1);
-        if (isNaN(delayMs) || delayMs <= 0) delayMs = 1500 * (attempt + 1);
-        delayMs = Math.min(delayMs, 5000);
+        let delayMs = retryHeader ? parseFloat(retryHeader) * 1000 : 1000 * (attempt + 1);
+        if (isNaN(delayMs) || delayMs <= 0) delayMs = 1000 * (attempt + 1);
+        delayMs = Math.min(delayMs, 4000);
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       }
@@ -227,7 +227,7 @@ export class OpenAIProvider implements InferenceProvider {
 
     if (!res || !res.ok) {
       errText = res ? await res.text() : "Network error";
-      if (res && res.status === 400 && errText.includes("tool_use_failed") && tools && tools.length > 0) {
+      if (res && (res.status === 400 || res.status === 500) && tools && tools.length > 0) {
         const fallbackPayload: Record<string, any> = {
           model: request.model || "gpt-4o",
           messages: formattedMsgs,
