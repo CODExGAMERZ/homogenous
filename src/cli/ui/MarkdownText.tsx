@@ -719,6 +719,32 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
 // Main Component
 // ---------------------------------------------------------------------------
 
+const highlightCache = new Map<string, string>();
+const MAX_HIGHLIGHT_CACHE_SIZE = 200;
+
+function getCachedHighlight(text: string, lang?: string): string {
+  const cacheKey = `${lang || "none"}:::${text}`;
+  const existing = highlightCache.get(cacheKey);
+  if (existing !== undefined) return existing;
+
+  let result = text;
+  try {
+    result = highlight(text, {
+      language: lang !== "code" ? lang : undefined,
+      ignoreIllegals: true,
+    });
+  } catch {
+    result = text;
+  }
+
+  if (highlightCache.size >= MAX_HIGHLIGHT_CACHE_SIZE) {
+    const firstKey = highlightCache.keys().next().value;
+    if (firstKey) highlightCache.delete(firstKey);
+  }
+  highlightCache.set(cacheKey, result);
+  return result;
+}
+
 export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content }) => {
   const theme = useTheme();
   const blocks = React.useMemo(() => parseMarkdownBlocks(content), [content]);
@@ -818,14 +844,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content }
             let highlighted = block.text;
 
             if (theme.id !== "plain") {
-              try {
-                highlighted = highlight(block.text, {
-                  language: block.lang !== "code" ? block.lang : undefined,
-                  ignoreIllegals: true,
-                });
-              } catch {
-                highlighted = block.text;
-              }
+              highlighted = getCachedHighlight(block.text, block.lang);
             }
 
             return (

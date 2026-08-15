@@ -41,30 +41,25 @@ export class NvidiaProvider extends OpenAIProvider {
           )
           .map((m) => m.id) || [
           "nvidia/nemotron-3-ultra-550b-a55b",
+          "deepseek-ai/deepseek-r1",
           "nvidia/nemotron-4-340b-instruct",
-          "nvidia/llama-3.1-nemotron-ultra-253b-v1",
-          "mistralai/mixtral-8x22b-v0.1",
-          "databricks/dbrx-instruct",
+          "mistralai/mixtral-8x22b-instruct-v0.1",
           "mistralai/mistral-large-2-instruct",
-          "openai/gpt-oss-120b",
           "meta/llama-3.2-90b-vision-instruct",
+          "qwen/qwen2.5-72b-instruct",
           "meta/llama-3.3-70b-instruct",
           "nvidia/llama-3.1-nemotron-70b-instruct",
           "meta/llama-3.1-70b-instruct",
           "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-          "ibm/granite-34b-code-instruct",
-          "google/gemma-4-31b-it",
-          "nvidia/nemotron-3-nano-30b-a3b",
+          "qwen/qwen2.5-coder-32b-instruct",
+          "google/gemma-2-27b-it",
           "mistralai/codestral-22b-instruct-v0.1",
-          "openai/gpt-oss-20b",
-          "bigcode/starcoder2-15b",
-          "google/gemma-3-12b-it",
-          "nv-mistralai/mistral-nemo-12b-instruct",
+          "google/gemma-2-9b-it",
           "meta/llama-3.1-8b-instruct",
           "mistralai/mistral-7b-instruct-v0.3",
-          "deepseek-ai/deepseek-coder-6.7b-instruct",
           "nvidia/nemotron-mini-4b-instruct",
           "meta/llama-3.2-3b-instruct",
+          "google/gemma-2-2b-it",
           "meta/llama-3.2-1b-instruct",
         ];
       this.installedModels = models;
@@ -75,17 +70,38 @@ export class NvidiaProvider extends OpenAIProvider {
   }
 
   private normalizeModel(model: string): string {
-    if (!model) return "nvidia/llama-3.1-nemotron-70b-instruct";
-    if (model.startsWith("nvidia/nvidia/")) {
-      return model.slice(7);
+    if (!model) return "meta/llama-3.3-70b-instruct";
+
+    let clean = model.trim();
+
+    if (clean === "nvidia/nemotron-3-ultra-550b-a55b" || clean === "nemotron-3-ultra-550b-a55b") {
+      return "nvidia/nemotron-3-ultra-550b-a55b";
     }
-    if (model.startsWith("nvidia/")) {
-      const rest = model.slice(7);
+
+    if (clean.startsWith("nvidia/nvidia/")) {
+      clean = clean.slice(7);
+    } else if (clean.startsWith("nvidia/")) {
+      const rest = clean.slice(7);
       if (rest.includes("/")) {
-        return rest;
+        clean = rest;
       }
     }
-    return model;
+
+    // Incompatible cross-provider models fallback
+    if (
+      clean.startsWith("claude") ||
+      clean.startsWith("gpt-") ||
+      clean.startsWith("chatgpt") ||
+      clean.startsWith("o1") ||
+      clean.startsWith("o3") ||
+      clean.startsWith("deepseek-chat") ||
+      clean.startsWith("deepseek-reasoner") ||
+      clean.startsWith("qwen2.5-coder")
+    ) {
+      return "meta/llama-3.3-70b-instruct";
+    }
+
+    return clean;
   }
 
   override async chat(request: ChatRequest) {

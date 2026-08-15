@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Box, Text, useApp, useInput, useStdout, Static } from "ink";
 import Spinner from "ink-spinner";
 import { PromptInput } from "./PromptInput.js";
-import { LogoBanner } from "./LogoBanner.js";
 import { ClaudeHeader } from "./ClaudeHeader.js";
 import { ToolCard } from "./ToolCard.js";
 import { MarkdownText } from "./MarkdownText.js";
@@ -14,7 +13,6 @@ import { AgentLoop } from "../../agent/AgentLoop.js";
 import { SlashCommandRegistry } from "../slash/SlashCommandRegistry.js";
 import { AutocompleteEngine, type AutocompleteItem } from "../slash/AutocompleteEngine.js";
 import type { CommandContext, PendingPlan } from "../slash/SlashCommand.js";
-import { ConfigResolver } from "../../config/ConfigResolver.js";
 import { getGitBranch } from "../../platform/shell.js";
 import { buildBaseSystemPrompt } from "../../agent/systemPrompt.js";
 
@@ -82,8 +80,6 @@ const AppContent: React.FC<AppProps> = ({
 }) => {
   const { exit } = useApp();
   const theme = useTheme();
-  const { stdout } = useStdout();
-  const termRows = stdout?.rows ? stdout.rows : undefined;
 
   const [provider, setProvider] = useState<InferenceProvider>(() => {
     if (propProvider) return propProvider;
@@ -101,6 +97,7 @@ const AppContent: React.FC<AppProps> = ({
     () => new SessionMemory(buildBaseSystemPrompt(workspacePath))
   );
   const [gitBranch, setGitBranch] = useState(initialGitBranch);
+  const [promptHistory, setPromptHistory] = useState<string[]>([]);
 
   const [pendingPlan, setPendingPlan] = useState<PendingPlan | null>(null);
   const [planModeEnabled, setPlanModeEnabled] = useState(false);
@@ -120,29 +117,58 @@ const AppContent: React.FC<AppProps> = ({
   else if (isProcessing) reactiveBorderColor = theme.primary;
 
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(0);
-  const cycleListRef = React.useRef<AutocompleteItem[]>([]);
-  const cycleIndexRef = React.useRef<number>(0);
-  const isCyclingRef = React.useRef<boolean>(false);
+  const [isSuggestionsDismissed, setIsSuggestionsDismissed] = useState(false);
 
-  const suggestions: AutocompleteItem[] = inputVal.startsWith("/")
-    ? (isCyclingRef.current && cycleListRef.current.length > 0
-        ? cycleListRef.current
-        : AutocompleteEngine.getInstance().getSuggestions(inputVal))
-    : [];
+  // Compute suggestions with fuzzy and file matching
+  const suggestions: AutocompleteItem[] = useMemo(() => {
+    if (isProcessing || isSuggestionsDismissed) return [];
+    if (inputVal.startsWith("/") || inputVal.includes("@")) {
+      return AutocompleteEngine.getInstance().getSuggestions(inputVal, workspacePath);
+    }
+    return [];
+  }, [inputVal, isProcessing, isSuggestionsDismissed, workspacePath]);
+
+  const isShowingSuggestions = suggestions.length > 0;
 
   const handleInputChange = (newVal: string) => {
-    isCyclingRef.current = false;
-    cycleListRef.current = [];
-    cycleIndexRef.current = 0;
+    setIsSuggestionsDismissed(false);
     setSelectedSuggestionIdx(0);
     setInputVal(newVal);
   };
 
   useEffect(() => {
     if (selectedSuggestionIdx >= suggestions.length) {
-      setSelectedSuggestionIdx(0);
+      setSelectedSuggestionIdx(Math.max(0, suggestions.length - 1));
     }
   }, [suggestions.length, selectedSuggestionIdx]);
+
+  const handleNavigateSuggestions = (direction: "up" | "down") => {
+    if (suggestions.length === 0) return;
+    setSelectedSuggestionIdx((prev) => {
+      if (direction === "up") {
+        return (prev - 1 + suggestions.length) % suggestions.length;
+      } else {
+        return (prev + 1) % suggestions.length;
+      }
+    });
+  };
+
+  const handleSelectSuggestion = (indexToSelect?: number) => {
+    const targetIdx = indexToSelect !== undefined ? indexToSelect : selectedSuggestionIdx;
+    if (suggestions.length > 0 && suggestions[targetIdx]) {
+      const selected = suggestions[targetIdx];
+      // Replace @term or slash command
+      if (inputVal.includes("@") && selected.type === "file") {
+        const atIdx = inputVal.lastIndexOf("@");
+        const nextVal = inputVal.slice(0, atIdx) + selected.value + " ";
+        setInputVal(nextVal);
+      } else {
+        setInputVal(selected.value);
+      }
+      setIsSuggestionsDismissed(true);
+      setSelectedSuggestionIdx(0);
+    }
+  };
 
   useInput(async (input, key) => {
     if (isProcessing) return;
@@ -150,25 +176,19 @@ const AppContent: React.FC<AppProps> = ({
     const isTab = key.tab || input === "\t" || input === "\x1b[Z";
     const isShiftTab = (key.tab && key.shift) || input === "\x1b[Z";
 
-    if (isTab && inputVal.startsWith("/")) {
-      if (!isCyclingRef.current || cycleListRef.current.length === 0) {
-        const initial = AutocompleteEngine.getInstance().getSuggestions(inputVal);
-        if (initial.length === 0) return;
-        cycleListRef.current = initial;
-        isCyclingRef.current = true;
-        cycleIndexRef.current = 0;
-        setSelectedSuggestionIdx(0);
-        setInputVal(initial[0].value);
-        return;
-      }
-
-      const list = cycleListRef.current;
+    // Tab / Shift+Tab cycling through suggestions
+    if (isTab && isShowingSuggestions) {
       const nextIdx = isShiftTab
-        ? (cycleIndexRef.current - 1 + list.length) % list.length
-        : (cycleIndexRef.current + 1) % list.length;
-      cycleIndexRef.current = nextIdx;
+        ? (selectedSuggestionIdx - 1 + suggestions.length) % suggestions.length
+        : (selectedSuggestionIdx + 1) % suggestions.length;
       setSelectedSuggestionIdx(nextIdx);
-      setInputVal(list[nextIdx].value);
+      const chosen = suggestions[nextIdx];
+      if (inputVal.includes("@") && chosen.type === "file") {
+        const atIdx = inputVal.lastIndexOf("@");
+        setInputVal(inputVal.slice(0, atIdx) + chosen.value);
+      } else {
+        setInputVal(chosen.value);
+      }
       return;
     }
 
@@ -213,7 +233,12 @@ const AppContent: React.FC<AppProps> = ({
     const trimmed = value.trim();
     if (!trimmed || isProcessing) return;
     setInputVal("");
-    setHasToolError(false);
+    setIsSuggestionsDismissed(true);
+    // Sanitize credentials from prompt history to prevent in-terminal exposure
+    const historyEntry = trimmed.startsWith("/login ")
+      ? trimmed.replace(/^(\/login\s+\S+\s+).+$/i, "$1●●●●●●●●")
+      : trimmed;
+    setPromptHistory((prev) => [...prev, historyEntry]);
 
     const commandContext: CommandContext = {
       provider,
@@ -282,14 +307,15 @@ const AppContent: React.FC<AppProps> = ({
         let lastRenderTime = 0;
         let renderTimer: NodeJS.Timeout | null = null;
 
+        // 60 FPS frame rate throttler (~16ms)
         const updateStreamingUI = (force = false) => {
           const now = Date.now();
-          if (!force && now - lastRenderTime < 35) {
+          if (!force && now - lastRenderTime < 16) {
             if (!renderTimer) {
               renderTimer = setTimeout(() => {
                 renderTimer = null;
                 updateStreamingUI(true);
-              }, 35);
+              }, 16);
             }
             return;
           }
@@ -366,6 +392,17 @@ const AppContent: React.FC<AppProps> = ({
       setIsProcessing(false);
     }
   };
+
+  // Windowed visible suggestions list (up to 6 items centered near selection)
+  const maxVisible = 6;
+  const startIdx = Math.max(
+    0,
+    Math.min(
+      selectedSuggestionIdx - Math.floor(maxVisible / 2),
+      suggestions.length - maxVisible
+    )
+  );
+  const visibleSuggestions = suggestions.slice(startIdx, startIdx + maxVisible);
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={0}>
@@ -446,26 +483,28 @@ const AppContent: React.FC<AppProps> = ({
         </Box>
       )}
 
-      {/* Enhanced Boxed Slash Command & Subcommand Autocomplete Suggestions Popup */}
-      {!isProcessing && inputVal.startsWith("/") && suggestions.length > 0 && (
+      {/* Enhanced Boxed Autocomplete Suggestions Popup */}
+      {isShowingSuggestions && (
         <Box flexDirection="column" borderStyle="round" borderColor={theme.warning} paddingX={1} marginY={0} marginTop={1}>
           <Box flexDirection="row" justifyContent="space-between" marginBottom={0.5}>
             <Text bold color={theme.warning}>
-              ✦ Suggestions (Tab to cycle, Enter to select):
+              ✦ Suggestions (↑/↓ to navigate, Enter/Tab to select, Esc to close):
             </Text>
             <Text color={theme.muted}>
-              {Math.min(selectedSuggestionIdx + 1, suggestions.length)}/{suggestions.length}
+              {selectedSuggestionIdx + 1}/{suggestions.length}
             </Text>
           </Box>
-          {suggestions.slice(0, 6).map((item, idx) => {
-            const isSelected = idx === selectedSuggestionIdx;
+          {visibleSuggestions.map((item, relIdx) => {
+            const actualIdx = startIdx + relIdx;
+            const isSelected = actualIdx === selectedSuggestionIdx;
+            const typeIcon = item.type === "file" ? "📁 " : item.type === "model" ? "🤖 " : "✦ ";
             return (
-              <Box key={`${item.value}-${idx}`} flexDirection="row">
+              <Box key={`${item.value}-${actualIdx}`} flexDirection="row">
                 <Text color={isSelected ? theme.success : theme.muted}>
                   {isSelected ? "❯ " : "  "}
                 </Text>
                 <Text bold color={isSelected ? theme.success : theme.primary}>
-                  {item.display.padEnd(28)}
+                  {`${typeIcon}${item.display}`.padEnd(30)}
                 </Text>
                 <Text color={isSelected ? theme.primary : theme.muted}> - {item.description}</Text>
               </Box>
@@ -489,7 +528,16 @@ const AppContent: React.FC<AppProps> = ({
           <Text bold color={theme.success}>
             {"homogenous > "}
           </Text>
-          <PromptInput value={inputVal} onChange={handleInputChange} onSubmit={handleSubmit} />
+          <PromptInput
+            value={inputVal}
+            onChange={handleInputChange}
+            onSubmit={handleSubmit}
+            isAutocompleteActive={isShowingSuggestions}
+            onNavigateSuggestions={handleNavigateSuggestions}
+            onSelectSuggestion={handleSelectSuggestion}
+            onDismissSuggestions={() => setIsSuggestionsDismissed(true)}
+            history={promptHistory}
+          />
         </Box>
       )}
     </Box>

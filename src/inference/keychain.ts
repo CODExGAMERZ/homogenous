@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import crypto from "node:crypto";
 import { ConfigResolver } from "../config/ConfigResolver.js";
 import { ProviderRegistry } from "./ProviderRegistry.js";
 
@@ -14,6 +15,44 @@ export type KeyProvider =
   | "mistral"
   | "together";
 
+function getMachineEncryptionKey(): Buffer {
+  const seed = `${os.hostname()}-${os.userInfo().username}-${os.homedir()}-homogenous-vault-key-v1`;
+  return crypto.createHash("sha256").update(seed).digest();
+}
+
+function encryptSecret(plaintext: string): string {
+  if (!plaintext) return "";
+  try {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv("aes-256-gcm", getMachineEncryptionKey(), iv);
+    let encrypted = cipher.update(plaintext, "utf8", "hex");
+    encrypted += cipher.final("hex");
+    const tag = cipher.getAuthTag().toString("hex");
+    return `enc:v1:${iv.toString("hex")}:${tag}:${encrypted}`;
+  } catch {
+    return plaintext;
+  }
+}
+
+function decryptSecret(cipherText: string): string {
+  if (!cipherText || !cipherText.startsWith("enc:v1:")) {
+    return cipherText || "";
+  }
+  try {
+    const parts = cipherText.split(":");
+    const iv = Buffer.from(parts[2], "hex");
+    const tag = Buffer.from(parts[3], "hex");
+    const encrypted = parts[4];
+    const decipher = crypto.createDecipheriv("aes-256-gcm", getMachineEncryptionKey(), iv);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(encrypted, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  } catch {
+    return "";
+  }
+}
+
 function getKeysFilePath(): string {
   const dir = path.join(os.homedir(), ".homogenous");
   if (!fs.existsSync(dir)) {
@@ -22,25 +61,47 @@ function getKeysFilePath(): string {
   return path.join(dir, "keys.json");
 }
 
-function loadStoredKeys(): Record<string, string> {
+let cachedStoredKeys: Record<string, string> | null = null;
+
+function loadStoredKeys(forceReload = false): Record<string, string> {
+  if (cachedStoredKeys && !forceReload) {
+    return cachedStoredKeys;
+  }
   const filePath = getKeysFilePath();
   if (fs.existsSync(filePath)) {
     try {
-      return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+      const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+      const decrypted: Record<string, string> = {};
+      for (const [k, v] of Object.entries(raw)) {
+        if (typeof v === "string") {
+          decrypted[k] = decryptSecret(v);
+        }
+      }
+      cachedStoredKeys = decrypted;
+      return cachedStoredKeys;
     } catch {
+      cachedStoredKeys = {};
       return {};
     }
   }
+  cachedStoredKeys = {};
   return {};
 }
 
 function saveStoredKeys(keys: Record<string, string>): void {
+  cachedStoredKeys = { ...keys };
   const filePath = getKeysFilePath();
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(filePath, JSON.stringify(keys, null, 2), { encoding: "utf-8", mode: 0o600 });
+  const encryptedPayload: Record<string, string> = {};
+  for (const [k, v] of Object.entries(keys)) {
+    if (v) {
+      encryptedPayload[k] = encryptSecret(v);
+    }
+  }
+  fs.writeFileSync(filePath, JSON.stringify(encryptedPayload, null, 2), { encoding: "utf-8", mode: 0o600 });
   try {
     fs.chmodSync(filePath, 0o600);
   } catch {
@@ -134,26 +195,53 @@ export class KeychainService {
     const envVarName = `${provider.toUpperCase()}_API_KEY`;
     process.env[envVarName] = cleanedKey;
 
-    let savedInKeytar = false;
-    // Attempt OS Keychain persistence via keytar first
+    // 1. Always persist to user-restricted 0600 file for instantaneous 0ms synchronous lookups
+    const stored = loadStoredKeys(true);
+    stored[provider] = cleanedKey;
+    saveStoredKeys(stored);
+
+    // 2. Also persist to OS Keychain via keytar when available
     try {
       const keytar = await this.getKeytar();
       if (keytar && keytar.setPassword) {
         await keytar.setPassword("homogenous", provider, cleanedKey);
-        savedInKeytar = true;
       }
     } catch {
-      savedInKeytar = false;
+      // keytar optional fallback
     }
 
-    // If keytar OS keychain is unavailable, save to user-restricted 0600 file fallback
-    if (!savedInKeytar) {
-      const stored = loadStoredKeys();
-      stored[provider] = cleanedKey;
+    // 3. Hot-reload provider instance in ProviderRegistry if active
+    const registryProvider = ProviderRegistry.getInstance().getProvider(provider);
+    if (registryProvider && "resetClient" in registryProvider && typeof (registryProvider as any).resetClient === "function") {
+      (registryProvider as any).resetClient();
+    }
+  }
+
+  /**
+   * Unregisters and removes a stored API key permanently across OS keychain, files, and process memory.
+   */
+  public static async deleteApiKey(provider: KeyProvider): Promise<void> {
+    const envVarName = `${provider.toUpperCase()}_API_KEY`;
+    delete process.env[envVarName];
+
+    // 1. Remove from local keys file
+    const stored = loadStoredKeys(true);
+    if (stored[provider]) {
+      delete stored[provider];
       saveStoredKeys(stored);
     }
 
-    // Hot-reload provider instance in ProviderRegistry if active
+    // 2. Remove from keytar OS keychain
+    try {
+      const keytar = await this.getKeytar();
+      if (keytar && keytar.deletePassword) {
+        await keytar.deletePassword("homogenous", provider);
+      }
+    } catch {
+      // Optional fallback
+    }
+
+    // 3. Reset client in registry if active
     const registryProvider = ProviderRegistry.getInstance().getProvider(provider);
     if (registryProvider && "resetClient" in registryProvider && typeof (registryProvider as any).resetClient === "function") {
       (registryProvider as any).resetClient();

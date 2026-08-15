@@ -9,16 +9,24 @@ import { resolvePath, getProjectMemoryDir } from "../../../platform/paths.js";
 export const metaCommands: SlashCommand[] = [
   {
     name: "config",
-    description: "Display merged .toolrc.yaml configuration",
+    description: "Display merged .toolrc.yaml configuration (credentials safely masked)",
     category: "config",
     execute: async () => {
       const config = ConfigResolver.getInstance().getConfig();
-      return { output: `Merged Configuration:\n${JSON.stringify(config, null, 2)}` };
+      const sanitized = JSON.parse(JSON.stringify(config));
+      if (sanitized.apiKeys && typeof sanitized.apiKeys === "object") {
+        for (const k of Object.keys(sanitized.apiKeys)) {
+          if (sanitized.apiKeys[k]) {
+            sanitized.apiKeys[k] = "●●●●●●●● (REDACTED)";
+          }
+        }
+      }
+      return { output: `Merged Configuration:\n${JSON.stringify(sanitized, null, 2)}` };
     },
   },
   {
     name: "login",
-    description: "Set and validate API key credential for provider mid-session",
+    description: "Set and save API key credential for provider (persisted until unregistered)",
     category: "config",
     usage: "/login [anthropic|openai|groq|nvidia|deepseek|openrouter|mistral|together] [api-key]",
     execute: async (args, ctx) => {
@@ -35,37 +43,110 @@ export const metaCommands: SlashCommand[] = [
         return { output: `Please provide an API key. Usage: /login ${providerStr} <your-api-key>` };
       }
 
-      // Temporarily set key in process.env to ping test provider
-      const envVarName = `${providerStr.toUpperCase()}_API_KEY`;
-      const prevKey = process.env[envVarName];
-      process.env[envVarName] = key;
-
-      const registryProvider = ProviderRegistry.getInstance().getProvider(providerStr);
-      if (registryProvider && "resetClient" in registryProvider && typeof (registryProvider as any).resetClient === "function") {
-        (registryProvider as any).resetClient();
-      }
-
-      const pingTarget = registryProvider || ctx.provider;
-      const pingResult = await pingTarget.ping();
-
-      if (!pingResult.ok) {
-        // Restore previous key state if validation fails
-        if (prevKey) process.env[envVarName] = prevKey;
-        else delete process.env[envVarName];
-
-        return {
-          output: `✗ Key validation failed for provider '${providerStr}': ${
-            pingResult.error || "Invalid API key or network error."
-          }`,
-        };
-      }
-
-      // Key validated successfully -> persist via KeychainService and hot-reload
+      // Persist key to OS Keychain and ~/.homogenous/keys.json immediately (Bring Your Own Key architecture)
       await KeychainService.setApiKey(providerStr, key);
       ConfigResolver.getInstance().loadConfig();
 
+      try {
+        const { AutocompleteEngine } = await import("../AutocompleteEngine.js");
+        AutocompleteEngine.getInstance().invalidateCache();
+      } catch {
+        // Ignore
+      }
+
+      // Optional health ping check
+      const registryProvider = ProviderRegistry.getInstance().getProvider(providerStr);
+      const pingTarget = registryProvider || ctx.provider;
+      let pingMsg = "";
+      try {
+        const pingResult = await pingTarget.ping();
+        if (pingResult.ok) {
+          pingMsg = " (Live connection verified ✓)";
+        } else if (pingResult.error) {
+          pingMsg = ` (Note: Ping test notice: ${pingResult.error})`;
+        }
+      } catch {
+        // Ping error is non-fatal for persistent storage
+      }
+
+      // Auto-switch active session provider and compatible default model
+      const defaultModels: Record<string, string> = {
+        nvidia: "meta/llama-3.3-70b-instruct",
+        groq: "llama-3.3-70b-versatile",
+        anthropic: "claude-3-5-sonnet-20241022",
+        openai: "gpt-4o",
+        deepseek: "deepseek-chat",
+        mistral: "mistral-large-latest",
+        together: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
+        openrouter: "anthropic/claude-3.5-sonnet",
+      };
+      const nextModel = defaultModels[providerStr] || "gpt-4o";
+
+      if (registryProvider && ctx.setProvider) {
+        ctx.setProvider(registryProvider);
+      }
+      if (ctx.setModel) {
+        ctx.setModel(nextModel);
+      }
+
       return {
-        output: `✓ Successfully validated and saved API key for '${providerStr}'! Credentials persisted and hot-reloaded.`,
+        output: `✓ Successfully saved and registered API key for '${providerStr}'!${pingMsg}\n✦ Switched active provider to ${providerStr} (Model: ${nextModel})\nKey is permanently stored until you unregister it via '/logout ${providerStr}'.`,
+      };
+    },
+  },
+  {
+    name: "logout",
+    description: "Unregister and permanently delete a stored provider API key",
+    category: "config",
+    usage: "/logout [provider] or /unregister [provider]",
+    execute: async (args) => {
+      const providerStr = args[0]?.toLowerCase() as KeyProvider;
+      const validProviders = ["anthropic", "openai", "groq", "nvidia", "deepseek", "openrouter", "mistral", "together"];
+
+      if (!providerStr || !validProviders.includes(providerStr)) {
+        return { output: `Usage: /logout [${validProviders.join("|")}]` };
+      }
+
+      await KeychainService.deleteApiKey(providerStr);
+      ConfigResolver.getInstance().loadConfig();
+
+      try {
+        const { AutocompleteEngine } = await import("../AutocompleteEngine.js");
+        AutocompleteEngine.getInstance().invalidateCache();
+      } catch {
+        // Ignore
+      }
+
+      return {
+        output: `✓ Successfully unregistered and removed API key for '${providerStr}'.`,
+      };
+    },
+  },
+  {
+    name: "unregister",
+    description: "Alias for /logout: unregister and permanently delete a stored provider API key",
+    category: "config",
+    usage: "/unregister [provider]",
+    execute: async (args) => {
+      const providerStr = args[0]?.toLowerCase() as KeyProvider;
+      const validProviders = ["anthropic", "openai", "groq", "nvidia", "deepseek", "openrouter", "mistral", "together"];
+
+      if (!providerStr || !validProviders.includes(providerStr)) {
+        return { output: `Usage: /unregister [${validProviders.join("|")}]` };
+      }
+
+      await KeychainService.deleteApiKey(providerStr);
+      ConfigResolver.getInstance().loadConfig();
+
+      try {
+        const { AutocompleteEngine } = await import("../AutocompleteEngine.js");
+        AutocompleteEngine.getInstance().invalidateCache();
+      } catch {
+        // Ignore
+      }
+
+      return {
+        output: `✓ Successfully unregistered and removed API key for '${providerStr}'.`,
       };
     },
   },
