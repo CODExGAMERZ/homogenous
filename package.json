@@ -3,10 +3,18 @@
   "version": "4.0.0",
   "description": "Enterprise-grade local-first CLI coding assistant powered by multi-provider LLM inference, dynamic skills, and MCP tools",
   "type": "module",
-  "main": "./dist/src/cli/index.js",
-  "types": "./dist/src/cli/index.d.ts",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
   "bin": {
     "homogenous": "dist/bin/homogenous.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -15,12 +23,28 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CODExGAMERZ/homogenous.git"
+  },
+  "homepage": "https://github.com/CODExGAMERZ/homogenous#readme",
+  "bugs": {
+    "url": "https://github.com/CODExGAMERZ/homogenous/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "tsx bin/homogenous.ts chat",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx/esm --test test/**/*.test.ts",
-    "prepack": "npm run build"
+    "prepare": "npm run build",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run test && npm run build"
   },
   "keywords": [
     "cli",
@@ -29,7 +53,9 @@
     "coding-assistant",
     "ollama",
     "anthropic",
-    "mcp"
+    "openai",
+    "mcp",
+    "developer-tools"
   ],
   "author": "CODExGAMERZ",
   "license": "MIT",
