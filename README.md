@@ -2,7 +2,7 @@
 
 ### The Enterprise-Grade, Local-First, Zero-Overhead Agentic CLI Coding Assistant
 
-[![Version: 4.0.0](https://img.shields.io/badge/VERSION-4.0.0-00F0FF?style=for-the-badge)](package.json)
+[![NPM Version](https://img.shields.io/npm/v/@codexgamerz/homogenous?style=for-the-badge&logo=npm&color=CB3837)](https://www.npmjs.com/package/@codexgamerz/homogenous)
 [![License: MIT](https://img.shields.io/badge/LICENSE-MIT-39FF14?style=for-the-badge)](LICENSE)
 [![TypeScript 5.0+](https://img.shields.io/badge/TYPESCRIPT-5.0+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js 20+](https://img.shields.io/badge/NODE.JS-20+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
@@ -40,8 +40,9 @@
 13. [📜 Complete Slash Commands Manual](#-complete-slash-commands-manual)
 14. [⚙️ Configuration Reference (`.toolrc.yaml` & `.mcp.json`)](#️-configuration-reference-toolrcyaml--mcpjson)
 15. [📁 Codebase Directory Structure](#-codebase-directory-structure)
-16. [🧪 Test Suite & Verification](#-test-suite--verification)
-17. [📄 License](#-license)
+16. [💻 Programmatic API & SDK Usage](#-programmatic-api--sdk-usage)
+17. [🧪 Test Suite & Verification](#-test-suite--verification)
+18. [📄 License](#-license)
 
 ---
 
@@ -620,8 +621,10 @@ CLI Tool/
 ├── bin/
 │   └── homogenous.ts               # CLI Entrypoint & Argument Parsing
 ├── src/
+│   ├── index.ts                    # Root Programmatic SDK Entrypoint
 │   ├── agent/
 │   │   ├── AgentLoop.ts            # Autonomous Multi-Turn Agent Loop & Token Scrubber
+│   │   ├── ExecutionMode.ts        # Normal, Auto-Approve, and Plan Execution Modes
 │   │   ├── PlanningMode.ts         # Plan & Apply Blueprint Generator
 │   │   ├── SubAgent.ts             # SubAgent Orchestration Engine
 │   │   ├── systemPrompt.ts         # Base System Prompt & Environment Context
@@ -663,6 +666,46 @@ CLI Tool/
 ├── install.sh                      # Automated macOS / Linux Bash Installer
 ├── package.json                    # Package Manifest (v4.0.0)
 └── README.md                       # Comprehensive Documentation
+```
+
+---
+
+## 💻 Programmatic API & SDK Usage
+
+In addition to the interactive CLI, `@codexgamerz/homogenous` can be imported as a TypeScript/JavaScript library into your own Node.js applications:
+
+```typescript
+import {
+  AgentLoop,
+  ProviderRegistry,
+  KeychainService,
+  PersistentMemory,
+  SkillRegistry,
+} from "@codexgamerz/homogenous";
+
+// 1. Initialize inference provider & credentials
+const registry = ProviderRegistry.getInstance();
+const provider = registry.getProvider("anthropic");
+
+// 2. Instantiate persistent project memory
+const memory = PersistentMemory.getInstance();
+await memory.addFact("Project uses Next.js 15 with TailwindCSS");
+
+// 3. Initialize Agent Loop
+const agent = new AgentLoop({
+  provider,
+  model: "claude-3-7-sonnet-20250219",
+  systemPrompt: "You are an autonomous engineering assistant.",
+  workspaceRoot: process.cwd(),
+});
+
+// 4. Run task with live token streaming
+const result = await agent.run("Scaffold a dark-mode pricing component", {
+  onTextDelta: (delta) => process.stdout.write(delta),
+  onToolStart: (tool, input) => console.log(`\nExecuting: ${tool}...`),
+});
+
+console.log("\nTask Complete!", result);
 ```
 
 ---
