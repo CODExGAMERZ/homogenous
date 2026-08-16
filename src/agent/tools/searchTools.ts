@@ -171,25 +171,98 @@ export class GrepSearchTool extends BaseTool {
   }
 }
 
+export function globToRegExp(pattern: string): RegExp {
+  const normalized = pattern.trim().replace(/\\/g, "/");
+  if (
+    !normalized ||
+    normalized === "*" ||
+    normalized === "**" ||
+    normalized === "**/*" ||
+    normalized === "*.*" ||
+    normalized === "."
+  ) {
+    return /^.*$/i;
+  }
+
+  // If pattern starts with ./ strip it
+  const cleanPattern = normalized.replace(/^\.\//, "");
+
+  let regexStr = "^";
+  let i = 0;
+  while (i < cleanPattern.length) {
+    const c = cleanPattern[i];
+    if (c === "*") {
+      if (cleanPattern[i + 1] === "*") {
+        // **
+        if (cleanPattern[i + 2] === "/") {
+          regexStr += "(?:.*/)?";
+          i += 3;
+        } else {
+          regexStr += ".*";
+          i += 2;
+        }
+      } else {
+        // * (matches everything except /)
+        regexStr += "[^/]*";
+        i++;
+      }
+    } else if (c === "?") {
+      regexStr += "[^/]";
+      i++;
+    } else if (
+      c === "[" ||
+      c === "]" ||
+      c === "{" ||
+      c === "}" ||
+      c === "(" ||
+      c === ")" ||
+      c === "+" ||
+      c === "^" ||
+      c === "$" ||
+      c === "." ||
+      c === "|"
+    ) {
+      regexStr += "\\" + c;
+      i++;
+    } else {
+      regexStr += c;
+      i++;
+    }
+  }
+  regexStr += "$";
+
+  try {
+    return new RegExp(regexStr, "i");
+  } catch {
+    const escaped = cleanPattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(escaped, "i");
+  }
+}
+
 export class GlobFilesTool extends BaseTool {
   readonly name = "glob_files";
-  readonly description = "Find files matching directory pattern or filename search in workspace.";
+  readonly description =
+    "Find files matching glob pattern or filename in workspace (supports wildcards like '*', '**/*', '*.ts', '*.html').";
   readonly zodSchema = z.object({
-    pattern: z.string().min(1, "pattern must not be empty"),
+    pattern: z.string().optional().default("*"),
   });
   readonly inputSchema = {
     type: "object",
     properties: {
       pattern: {
         type: "string",
-        description: "Search term or file extension pattern (e.g., '.ts', 'config').",
+        description:
+          "Glob pattern or search term (e.g. '*', '**/*.ts', '*.html', 'config'). Defaults to '*' to list all workspace files.",
       },
     },
-    required: ["pattern"],
   };
 
   async execute(input: Record<string, unknown>): Promise<ToolResult> {
-    const pattern = (input.pattern as string).toLowerCase();
+    const rawPattern = (input.pattern as string | undefined) || "*";
+    const pattern = rawPattern.trim() || "*";
+    const regexMatcher = globToRegExp(pattern);
+    const lowerPattern = pattern.toLowerCase();
+    const hasWildcards = /[*?{}[\]]/.test(pattern);
 
     try {
       const matches: string[] = [];
@@ -225,8 +298,16 @@ export class GlobFilesTool extends BaseTool {
           if (entry.isDirectory()) {
             walkDir(fullPath, depth + 1);
           } else if (entry.isFile()) {
-            if (entry.name.toLowerCase().includes(pattern) || fullPath.toLowerCase().includes(pattern)) {
-              matches.push(fullPath.replace(/\\/g, "/"));
+            const relPath = path.relative(process.cwd(), fullPath).replace(/\\/g, "/");
+            const fileName = entry.name;
+
+            const matchesPattern =
+              regexMatcher.test(relPath) ||
+              regexMatcher.test(fileName) ||
+              (!hasWildcards && (fileName.toLowerCase().includes(lowerPattern) || relPath.toLowerCase().includes(lowerPattern)));
+
+            if (matchesPattern) {
+              matches.push(relPath);
             }
           }
         }
@@ -237,7 +318,7 @@ export class GlobFilesTool extends BaseTool {
       if (matches.length === 0) {
         return {
           ok: true,
-          content: `No files matching pattern '${pattern}' were found.`,
+          content: `No files matching pattern '${pattern}' were found in workspace.`,
         };
       }
 
@@ -254,3 +335,4 @@ export class GlobFilesTool extends BaseTool {
     }
   }
 }
+

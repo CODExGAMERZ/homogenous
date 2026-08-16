@@ -91,3 +91,42 @@ test("GitStatusTool returns working directory status", async () => {
   assert.ok(typeof res.content === "string");
 });
 
+test("GlobFilesTool matches wildcards and lists workspace files", async () => {
+  const { GlobFilesTool, globToRegExp } = await import("../../src/agent/tools/searchTools.js");
+  
+  // Test regex converter
+  assert.ok(globToRegExp("*").test("index.html"));
+  assert.ok(globToRegExp("*.html").test("index.html"));
+  assert.ok(!globToRegExp("*.html").test("index.ts"));
+  assert.ok(globToRegExp("**/*.ts").test("src/agent/AgentLoop.ts"));
+
+  // Test execution
+  const globTool = new GlobFilesTool();
+  const wildcardRes = await globTool.execute({ pattern: "*" });
+  assert.strictEqual(wildcardRes.ok, true);
+  assert.match(wildcardRes.content, /package\.json/);
+
+  const extRes = await globTool.execute({ pattern: "*.json" });
+  assert.strictEqual(extRes.ok, true);
+  assert.match(extRes.content, /package\.json/);
+
+  const emptyPatternRes = await globTool.execute({});
+  assert.strictEqual(emptyPatternRes.ok, true);
+  assert.match(emptyPatternRes.content, /Found \d+ matching files/);
+});
+
+test("ListDirTool lists directory contents with sizes and directories", async () => {
+  const { ListDirTool } = await import("../../src/agent/tools/fileTools.js");
+  const listDirTool = new ListDirTool();
+
+  const res = await listDirTool.execute({ path: "." });
+  assert.strictEqual(res.ok, true);
+  assert.match(res.content, /\[DIR\]\s+src\//);
+  assert.match(res.content, /\[FILE\]\s+package\.json/);
+
+  const nonExistentRes = await listDirTool.execute({ path: "non_existent_folder_xyz" });
+  assert.strictEqual(nonExistentRes.ok, false);
+  assert.match(nonExistentRes.content, /Directory not found/);
+});
+
+

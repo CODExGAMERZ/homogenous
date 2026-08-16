@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import type { InferenceProvider, Message, ContentBlock } from "../inference/InferenceProvider.js";
 import { BaseTool } from "./tools/BaseTool.js";
-import { ReadFileTool, WriteFileTool, ReplaceFileContentTool } from "./tools/fileTools.js";
+import { ReadFileTool, WriteFileTool, ReplaceFileContentTool, ListDirTool } from "./tools/fileTools.js";
 import { GrepSearchTool, GlobFilesTool } from "./tools/searchTools.js";
 import { GitStatusTool, GitDiffTool, GitLogTool } from "./tools/gitTools.js";
 import { ShellExecuteTool } from "./tools/shellTool.js";
@@ -13,6 +13,7 @@ import { McpClientManager } from "../mcp/McpClientManager.js";
 import { parseEmbeddedToolCalls } from "../inference/toolParser.js";
 import { buildBaseSystemPrompt } from "./systemPrompt.js";
 import { KeychainService, type KeyProvider } from "../inference/keychain.js";
+import type { ToolResult } from "./tools/BaseTool.js";
 
 /**
  * Scrubs all known active API keys and sensitive token patterns from text before appending to LLM memory.
@@ -45,6 +46,9 @@ export interface AgentLoopOptions {
   maxTurns?: number;
   autoApprove?: boolean;
   workspaceRoot?: string;
+  onToolStart?: (toolName: string, input: Record<string, unknown>) => void;
+  onToolEnd?: (toolName: string, result: ToolResult) => void;
+  onSkillTrigger?: (skillName: string, origin: string) => void;
 }
 
 export class AgentLoop {
@@ -65,6 +69,7 @@ export class AgentLoop {
       new ReadFileTool(),
       new WriteFileTool(),
       new ReplaceFileContentTool(),
+      new ListDirTool(),
       new GrepSearchTool(),
       new GlobFilesTool(),
       new GitStatusTool(),
@@ -113,7 +118,11 @@ export class AgentLoop {
     if (lastUserMsg && typeof lastUserMsg.content === "string") {
       const matchedSkill = SkillRegistry.getInstance().matchTrigger(lastUserMsg.content);
       if (matchedSkill) {
-        console.log(chalk.bold.magenta(`⚡ Dynamic Skill Triggered: '${matchedSkill.metadata.name}' (${matchedSkill.origin || "global"})`));
+        if (this.options.onSkillTrigger) {
+          this.options.onSkillTrigger(matchedSkill.metadata.name, matchedSkill.origin || "global");
+        } else {
+          console.log(chalk.bold.magenta(`⚡ Dynamic Skill Triggered: '${matchedSkill.metadata.name}' (${matchedSkill.origin || "global"})`));
+        }
         // Isolate project-local skills: inject as user-context boundary; keep system prompt only for trusted bundled/global skills
         if (matchedSkill.origin === "project") {
           messages.push({
@@ -212,7 +221,11 @@ export class AgentLoop {
         if (block.type !== "tool_use") continue;
         const { id, name, input } = block.toolCall;
 
-        console.log(chalk.cyan(`  ⚙ Tool Executing: ${name}`));
+        if (this.options.onToolStart) {
+          this.options.onToolStart(name, input as Record<string, unknown>);
+        } else {
+          console.log(chalk.cyan(`  ⚙ Tool Executing: ${name}`));
+        }
 
         const tool = this.toolsMap.get(name);
         if (!tool) {
@@ -239,6 +252,9 @@ export class AgentLoop {
 
         try {
           const rawResult = await tool.execute(validation.data || input);
+          if (this.options.onToolEnd) {
+            this.options.onToolEnd(name, rawResult);
+          }
           const truncated = ToolOutputTruncator.truncate(rawResult.content, 4000);
 
           resultBlocks.push({
@@ -248,6 +264,9 @@ export class AgentLoop {
             isError: rawResult.isError ?? !rawResult.ok,
           });
         } catch (err) {
+          if (this.options.onToolEnd) {
+            this.options.onToolEnd(name, { ok: false, isError: true, content: (err as Error).message });
+          }
           resultBlocks.push({
             type: "tool_result",
             toolCallId: id,

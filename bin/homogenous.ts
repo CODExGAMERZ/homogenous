@@ -1,7 +1,9 @@
-#!/usr/bin/env node
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import chalk from "chalk";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { runRepl } from "../src/cli/repl.js";
 import { runOneshot } from "../src/cli/oneshot.js";
 import { runInit } from "../src/cli/init.js";
@@ -10,6 +12,24 @@ import { SkillRegistry } from "../src/skills/SkillRegistry.js";
 import { SkillInstaller } from "../src/skills/SkillInstaller.js";
 import { McpConfigResolver } from "../src/mcp/config.js";
 import { McpClientManager } from "../src/mcp/McpClientManager.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+let pkgVersion = "4.0.1";
+try {
+  const pkgPath = path.resolve(__dirname, "../../package.json");
+  if (fs.existsSync(pkgPath)) {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    if (pkg.version) pkgVersion = pkg.version;
+  } else {
+    const altPkgPath = path.resolve(__dirname, "../package.json");
+    if (fs.existsSync(altPkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(altPkgPath, "utf-8"));
+      if (pkg.version) pkgVersion = pkg.version;
+    }
+  }
+} catch {
+  // Fallback default
+}
 
 yargs(hideBin(process.argv))
   .scriptName("homogenous")
@@ -195,6 +215,6 @@ yargs(hideBin(process.argv))
   .strict()
   .help()
   .alias("h", "help")
-  .version("4.0.0")
+  .version(pkgVersion)
   .alias("v", "version")
   .parse();

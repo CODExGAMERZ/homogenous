@@ -299,6 +299,45 @@ const AppContent: React.FC<AppProps> = ({
           model,
           autoApprove: autoApproveEnabled,
           workspaceRoot: workspacePath,
+          onToolStart: (toolName, input) => {
+            setFeed((prev) => [
+              ...prev,
+              {
+                id: `tool-${Date.now()}-${Math.random()}`,
+                type: "tool",
+                text: "",
+                toolName,
+                toolInput: input,
+                toolStatus: "pending",
+              },
+            ]);
+          },
+          onToolEnd: (toolName, result) => {
+            setFeed((prev) => {
+              const updated = [...prev];
+              for (let i = updated.length - 1; i >= 0; i--) {
+                if (updated[i].type === "tool" && updated[i].toolName === toolName && updated[i].toolStatus === "pending") {
+                  updated[i] = {
+                    ...updated[i],
+                    toolStatus: result.ok ? "success" : "error",
+                    toolOutput: result.content ? result.content.slice(0, 300) : undefined,
+                  };
+                  break;
+                }
+              }
+              return updated;
+            });
+          },
+          onSkillTrigger: (skillName, origin) => {
+            setFeed((prev) => [
+              ...prev,
+              {
+                id: `skill-${Date.now()}`,
+                type: "system",
+                text: `⚡ Dynamic Skill Triggered: '${skillName}' (${origin})`,
+              },
+            ]);
+          },
         });
 
         let isFirstChunk = true;

@@ -220,3 +220,142 @@ export class ReplaceFileContentTool extends BaseTool {
     }
   }
 }
+
+export class ListDirTool extends BaseTool {
+  readonly name = "list_dir";
+  readonly description =
+    "List files and subdirectories at a given workspace path with directory indicators and file sizes.";
+  readonly zodSchema = z.object({
+    path: z.string().optional().default("."),
+    recursive: z.boolean().optional().default(false),
+    maxDepth: z.number().int().min(1).max(10).optional().default(2),
+  });
+  readonly inputSchema = {
+    type: "object",
+    properties: {
+      path: {
+        type: "string",
+        description: "Directory path to list (relative to workspace, defaults to '.').",
+      },
+      recursive: {
+        type: "boolean",
+        description: "Whether to list subdirectories recursively (default false).",
+      },
+      maxDepth: {
+        type: "integer",
+        description: "Max recursive depth (default 2).",
+      },
+    },
+  };
+
+  async execute(input: Record<string, unknown>): Promise<ToolResult> {
+    const dirRelPath = (input.path as string | undefined) || ".";
+    const recursive = Boolean(input.recursive);
+    const maxDepth = typeof input.maxDepth === "number" ? input.maxDepth : 2;
+
+    try {
+      const absPath = resolveWorkspacePath(process.cwd(), dirRelPath);
+      if (isSensitiveSecurityPath(absPath) || isSensitiveSecurityPath(dirRelPath)) {
+        return {
+          ok: false,
+          isError: true,
+          content: `Access denied: Directory '${dirRelPath}' is a restricted security credential/vault path.`,
+        };
+      }
+      if (!fs.existsSync(absPath)) {
+        return {
+          ok: false,
+          isError: true,
+          content: `Error: Directory not found at path '${dirRelPath}'`,
+        };
+      }
+
+      const stat = fs.statSync(absPath);
+      if (!stat.isDirectory()) {
+        return {
+          ok: false,
+          isError: true,
+          content: `Error: Path '${dirRelPath}' is a file, not a directory. Use 'read_file' to view file contents.`,
+        };
+      }
+
+      const results: string[] = [];
+      const visited = new Set<string>();
+
+      function walk(currentDir: string, currentRel: string, depth: number) {
+        if (depth > maxDepth || results.length >= 200) return;
+
+        let real: string;
+        try {
+          real = fs.realpathSync(currentDir);
+          if (visited.has(real)) return;
+          visited.add(real);
+        } catch {
+          return;
+        }
+
+        let entries: fs.Dirent[];
+        try {
+          entries = fs.readdirSync(currentDir, { withFileTypes: true });
+        } catch {
+          return;
+        }
+
+        // Sort directories first, then alphabetical
+        entries.sort((a, b) => {
+          if (a.isDirectory() && !b.isDirectory()) return -1;
+          if (!a.isDirectory() && b.isDirectory()) return 1;
+          return a.name.localeCompare(b.name);
+        });
+
+        for (const entry of entries) {
+          if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist") {
+            continue;
+          }
+          const fullPath = path.join(currentDir, entry.name);
+          if (isSensitiveSecurityPath(fullPath)) {
+            continue;
+          }
+
+          const relEntryPath = currentRel ? `${currentRel}/${entry.name}` : entry.name;
+
+          if (entry.isDirectory()) {
+            results.push(`[DIR]  ${relEntryPath}/`);
+            if (recursive && depth < maxDepth) {
+              walk(fullPath, relEntryPath, depth + 1);
+            }
+          } else if (entry.isFile()) {
+            try {
+              const fileStat = fs.statSync(fullPath);
+              const sizeKb = (fileStat.size / 1024).toFixed(1);
+              results.push(`[FILE] ${relEntryPath} (${sizeKb} KB)`);
+            } catch {
+              results.push(`[FILE] ${relEntryPath}`);
+            }
+          }
+        }
+      }
+
+      walk(absPath, "", 1);
+
+      if (results.length === 0) {
+        return {
+          ok: true,
+          content: `Directory '${dirRelPath}' is empty.`,
+        };
+      }
+
+      return {
+        ok: true,
+        content: `Contents of '${dirRelPath}' (${results.length} items):\n\n${results.join("\n")}`,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        isError: true,
+        content: `Error listing directory '${dirRelPath}': ${(err as Error).message}`,
+      };
+    }
+  }
+}
+
