@@ -1,4 +1,4 @@
-# ✦ HOMOGENOUS (v4.0.0)
+# ✦ HOMOGENOUS (v4.0.1)
 
 ### The Enterprise-Grade, Local-First, Zero-Overhead Agentic CLI Coding Assistant
 
@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/LICENSE-MIT-39FF14?style=for-the-badge)](LICENSE)
 [![TypeScript 5.0+](https://img.shields.io/badge/TYPESCRIPT-5.0+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js 20+](https://img.shields.io/badge/NODE.JS-20+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Tests: 90 Passed](https://img.shields.io/badge/TESTS-90%20PASSED-39FF14?style=for-the-badge)](test/)
+[![Tests: 92 Passed](https://img.shields.io/badge/TESTS-92%20PASSED-39FF14?style=for-the-badge)](test/)
 [![Security: Zero-Trust Sandbox](https://img.shields.io/badge/SECURITY-ZERO--TRUST%20SANDBOX-FF007F?style=for-the-badge)](https://github.com/CODExGAMERZ/homogenous)
 
 ```text
@@ -54,7 +54,7 @@ Unlike cloud-dependent extensions or heavy web wrappers, Homogenous runs **direc
 
 ```
  ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
- │ ✦ HOMOGENOUS AGENT v4.0.0 (Local-First Assistant)                                     workspace: /projects/core [main] │
+ │ ✦ HOMOGENOUS AGENT v4.0.1 (Local-First Assistant)                                     workspace: /projects/core [main] │
  │ model: nvidia/deepseek-ai/deepseek-r1 [671B]                               session: 1.4k tok | $0.002 | 14 loc / 0 cld │
  ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
   ✦ Ctrl+P:Plan | Ctrl+U:Undo | Ctrl+D:Diff | Ctrl+O:Model | Ctrl+A:Auto | Ctrl+L:Clear | Esc:Exit
@@ -661,10 +661,10 @@ CLI Tool/
 │   ├── skills/                     # Modular Dynamic Skills Engine
 │   └── token-budget/               # Cost Ledger, Token Counter, and DiffEngine
 ├── test/
-│   └── unit/                       # 90 Automated Unit Tests
+│   └── unit/                       # 92 Automated Unit Tests
 ├── install.ps1                     # Automated Windows PowerShell Installer
 ├── install.sh                      # Automated macOS / Linux Bash Installer
-├── package.json                    # Package Manifest (v4.0.0)
+├── package.json                    # Package Manifest (v4.0.1)
 └── README.md                       # Comprehensive Documentation
 ```
 
@@ -715,7 +715,7 @@ console.log("\nTask Complete!", result);
 Homogenous includes a comprehensive test harness covering every layer of the application:
 
 ```bash
-# Run all 90 automated unit tests
+# Run all 92 automated unit tests
 npm test
 
 # Build production TypeScript bundle
@@ -734,5 +734,6 @@ Homogenous CLI is open-source software licensed under the [MIT License](LICENSE)
 ---
 
 <p align="center">
-  <b>✦ HOMOGENOUS CLI v4.0.0 — Code Faster. Deploy Safer. Local First. ✦</b>
+  <b>✦ HOMOGENOUS CLI v4.0.1 — Code Faster. Deploy Safer. Local First. ✦</b>
 </p>
+
