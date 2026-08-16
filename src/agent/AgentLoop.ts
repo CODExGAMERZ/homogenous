@@ -195,11 +195,25 @@ export class AgentLoop {
       }
 
       if (toolCalls.length === 0 || (response.stopReason !== "tool_use" && toolCalls.length === 0)) {
-        // Conversation turn completed, return final text content
+        // Conversation turn completed, check for conversational hesitation or uncompleted promise
         const textBlocks = response.content
           .filter((b) => b.type === "text")
           .map((b) => (b as { text: string }).text);
         const fullText = textBlocks.join("\n").trim();
+
+        // Check for conversational hesitation / unfulfilled promise after inspecting files
+        const isConversationalPromise = /(?:let me|i will|i'll|i am going to|i'm going to|about to|now going to|now create|now update|now write|now implement)\s+(?:create|write|implement|enhance|improve|update|modify|add|build|generate)/i.test(fullText);
+        const hasRecentReadTool = messages.some((m, idx) => idx >= messages.length - 3 && Array.isArray(m.content) && m.content.some((b: any) => b.type === "tool_result" && typeof b.content === "string" && (b.content.includes("File: ") || b.content.includes("Contents of "))));
+        const hasWrittenFile = messages.some((m) => Array.isArray(m.content) && m.content.some((b: any) => b.type === "tool_use" && (b.toolCall?.name === "write_file" || b.toolCall?.name === "replace_file_content")));
+
+        if (isConversationalPromise && hasRecentReadTool && !hasWrittenFile && turnCount < this.maxTurns) {
+          // Model paused to announce intent instead of calling write_file. Nudge it to continue execution.
+          messages.push({
+            role: "user",
+            content: "Proceed now to invoke 'write_file' or 'replace_file_content' with the complete code changes. Do not pause with conversational text.",
+          });
+          continue;
+        }
 
         if (onTextDelta && fullText) {
           // NOTE: Pacing timer fallback for turns provides UI-only word-by-word chunking animation
