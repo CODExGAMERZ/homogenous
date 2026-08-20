@@ -1,4 +1,4 @@
-# ✦ HOMOGENOUS (v4.0.2)
+# ✦ HOMOGENOUS (v4.0.3)
 
 ### The Enterprise-Grade, Local-First, Zero-Overhead Agentic CLI Coding Assistant
 
@@ -54,7 +54,7 @@ Unlike cloud-dependent extensions or heavy web wrappers, Homogenous runs **direc
 
 ```
  ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
- │ ✦ HOMOGENOUS AGENT v4.0.2 (Local-First Assistant)                                     workspace: /projects/core [main] │
+ │ ✦ HOMOGENOUS AGENT v4.0.3 (Local-First Assistant)                                     workspace: /projects/core [main] │
  │ model: nvidia/deepseek-ai/deepseek-r1 [671B]                               session: 1.4k tok | $0.002 | 14 loc / 0 cld │
  ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
   ✦ Ctrl+P:Plan | Ctrl+U:Undo | Ctrl+D:Diff | Ctrl+O:Model | Ctrl+A:Auto | Ctrl+L:Clear | Esc:Exit
@@ -664,7 +664,7 @@ CLI Tool/
 │   └── unit/                       # 92 Automated Unit Tests
 ├── install.ps1                     # Automated Windows PowerShell Installer
 ├── install.sh                      # Automated macOS / Linux Bash Installer
-├── package.json                    # Package Manifest (v4.0.2)
+├── package.json                    # Package Manifest (v4.0.3)
 └── README.md                       # Comprehensive Documentation
 ```
 
@@ -734,7 +734,8 @@ Homogenous CLI is open-source software licensed under the [MIT License](LICENSE)
 ---
 
 <p align="center">
-  <b>✦ HOMOGENOUS CLI v4.0.2 — Code Faster. Deploy Safer. Local First. ✦</b>
+  <b>✦ HOMOGENOUS CLI v4.0.3 — Code Faster. Deploy Safer. Local First. ✦</b>
 </p>
+
 
 
