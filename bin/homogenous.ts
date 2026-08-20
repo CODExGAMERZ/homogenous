@@ -14,7 +14,7 @@ import { McpConfigResolver } from "../src/mcp/config.js";
 import { McpClientManager } from "../src/mcp/McpClientManager.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-let pkgVersion = "4.0.1";
+let pkgVersion = "4.0.2";
 try {
   const pkgPath = path.resolve(__dirname, "../../package.json");
   if (fs.existsSync(pkgPath)) {
