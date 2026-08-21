@@ -237,7 +237,7 @@ test("Adversarial Security: Skill name path traversal is blocked at parse & scaf
   }, /Invalid skill name/i);
 });
 
-test("Adversarial Security: WebFetchTool blocks IPv4-mapped IPv6 addresses", async () => {
+test("Adversarial Security: WebFetchTool blocks IPv4-mapped IPv6 addresses and reserved subnets", async () => {
   const webTool = new WebFetchTool();
 
   // IPv4-mapped IPv6 loopback
@@ -254,5 +254,20 @@ test("Adversarial Security: WebFetchTool blocks IPv4-mapped IPv6 addresses", asy
   const res3 = await webTool.execute({ url: "http://[::ffff:10.0.0.1]:3000" });
   assert.strictEqual(res3.ok, false);
   assert.match(res3.content, /SSRF prevention/);
+
+  // CGNAT 100.64.0.1
+  const res4 = await webTool.execute({ url: "http://100.64.1.1:8080/data" });
+  assert.strictEqual(res4.ok, false);
+  assert.match(res4.content, /SSRF prevention/);
+
+  // Multicast 224.0.0.1
+  const res5 = await webTool.execute({ url: "http://224.0.0.1:9000/" });
+  assert.strictEqual(res5.ok, false);
+  assert.match(res5.content, /SSRF prevention/);
+
+  // Reserved 240.0.0.1
+  const res6 = await webTool.execute({ url: "http://240.0.0.1/" });
+  assert.strictEqual(res6.ok, false);
+  assert.match(res6.content, /SSRF prevention/);
 });
 

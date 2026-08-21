@@ -16,6 +16,8 @@ export function promptCommandApproval(command: string): Promise<boolean> {
   process.stdout.write(chalk.bold("Execute command? Press [y] to approve, or any other key to cancel: "));
 
   return new Promise<boolean>((resolve) => {
+    const wasRaw = Boolean(process.stdin.isRaw);
+
     if (process.stdin.setRawMode) {
       process.stdin.setRawMode(true);
     }
@@ -30,13 +32,17 @@ export function promptCommandApproval(command: string): Promise<boolean> {
 
       if (isApproved) {
         process.stdout.write(chalk.green("y\n✓ Command approved.\n\n"));
-        resolve(true);
       } else {
         process.stdout.write(chalk.red("n\n✗ Command execution declined by user.\n\n"));
-        resolve(false);
       }
+
+      if (process.stdin.setRawMode && !wasRaw) {
+        process.stdin.setRawMode(false);
+      }
+
+      resolve(isApproved);
     };
 
-    process.stdin.on("data", onData);
+    process.stdin.once("data", onData);
   });
 }

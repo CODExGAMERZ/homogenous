@@ -168,7 +168,24 @@ export function isSensitiveSecurityPath(filePath: string): boolean {
     return true;
   }
 
-  // 5. Private certificate / key store extensions
+  // 5. Environment secret vaults (.env, .env.local, .env.production, etc. - excluding .example / .sample)
+  if (/(?:^|\/)\.env(?!\.(example|sample|template|dist|defaults)\b)(?:\..+)?$/i.test(normalized)) {
+    return true;
+  }
+
+  // 6. System credential vaults and shadow files
+  if (
+    normalized === "/etc/shadow" ||
+    normalized.endsWith("/etc/shadow") ||
+    normalized === "/etc/sudoers" ||
+    normalized.endsWith("/etc/sudoers") ||
+    normalized.includes("system32/config/sam") ||
+    normalized.includes("system32/config/system")
+  ) {
+    return true;
+  }
+
+  // 7. Private certificate / key store extensions
   if (/\.(pem|key|p12|pfx|pkcs12|kdbx)$/i.test(normalized)) {
     return true;
   }

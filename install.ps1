@@ -3,7 +3,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-Write-Host "`n✦ Installing Homogenous CLI v4.0.3 (Local-First Coding Assistant)..." -ForegroundColor Cyan
+Write-Host "`n✦ Installing Homogenous CLI v4.1.0 (Local-First Coding Assistant)..." -ForegroundColor Cyan
 
 # 1. Check Node.js
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
@@ -17,27 +17,25 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-# 3. Build package if running from source checkout
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+# 3. Build package if running from source checkout, or install from registry
+$scriptDir = if ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { Get-Location }
+
 if (Test-Path (Join-Path $scriptDir "package.json")) {
     Write-Host "Building Homogenous CLI from local repository..." -ForegroundColor Yellow
     Set-Location $scriptDir
+    npm install
     npm run build
     npm link
 } else {
-    Write-Host "Installing Homogenous CLI from npm package registry..." -ForegroundColor Yellow
-    npm install -g @codexgamerz/homogenous@latest
-    if (Test-Path "package.json") {
-        Write-Host "Installing from local package..." -ForegroundColor Cyan
-        npm install
-        npm run build
-        npm link
-    } else {
-        throw $_
+    Write-Host "Installing Homogenous CLI globally via npm..." -ForegroundColor Yellow
+    try {
+        npm install -g @codexgamerz/homogenous@latest
+    } catch {
+        Write-Host "Failed to install from npm registry: $_" -ForegroundColor Red
+        exit 1
     }
 }
 
-Write-Host "`n✓ Homogenous CLI v4.0.3 installed successfully!" -ForegroundColor Green
+Write-Host "`n✓ Homogenous CLI v4.1.0 installed successfully!" -ForegroundColor Green
 Write-Host "`nTo get started, simply type:" -ForegroundColor Cyan
 Write-Host "  homogenous`n" -ForegroundColor White
-

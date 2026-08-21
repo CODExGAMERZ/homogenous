@@ -31,9 +31,15 @@ export function scrubSensitiveTokens(text: string): string {
     }
   }
 
-  // 2. Scrub standard regex token formats
+  // 2. Scrub database connection URIs containing passwords
   scrubbed = scrubbed.replace(
-    /(?:bearer\s+[A-Za-z0-9_.-]{16,}|sk-[A-Za-z0-9_.-]{20,}|gsk_[A-Za-z0-9_.-]{20,}|nvapi-[A-Za-z0-9_.-]{20,}|ghp_[A-Za-z0-9_.-]{20,}|gho_[A-Za-z0-9_.-]{20,}|glpat-[A-Za-z0-9_.-]{20,}|AKIA[0-9A-Z]{16}|enc:v1:[a-f0-9:]+)/gi,
+    /((?:postgres|postgresql|mysql|mongodb(?:\+srv)?|redis|amqp|mssql):\/\/[^:\s\/]+:)([^@\s]+)(@)/gi,
+    "$1[REDACTED_PASSWORD]$3"
+  );
+
+  // 3. Scrub standard regex token formats
+  scrubbed = scrubbed.replace(
+    /(?:bearer\s+[A-Za-z0-9_.-]{16,}|sk-(?:proj-|ant-|svcacct-)?[A-Za-z0-9_.-]{16,}|gsk_[A-Za-z0-9_.-]{16,}|nvapi-[A-Za-z0-9_.-]{16,}|ghp_[A-Za-z0-9_.-]{16,}|gho_[A-Za-z0-9_.-]{16,}|github_pat_[A-Za-z0-9_.-]{20,}|glpat-[A-Za-z0-9_.-]{16,}|hf_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9_.-]{10,}|AKIA[0-9A-Z]{16}|enc:v1:[a-f0-9:]+|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9-_./+=]{10,})/gi,
     "[REDACTED_SECRET]"
   );
 

@@ -37,19 +37,36 @@ function isPrivateIPv4(ip: string): boolean {
   if (num !== null) {
     const b1 = (num >>> 24) & 0xff;
     const b2 = (num >>> 16) & 0xff;
+    const b3 = (num >>> 8) & 0xff;
 
     // 0.0.0.0/8 (Current network)
     if (b1 === 0) return true;
     // 127.0.0.0/8 (Loopback)
     if (b1 === 127) return true;
-    // 10.0.0.0/8 (Private)
+    // 10.0.0.0/8 (Private RFC 1918)
     if (b1 === 10) return true;
+    // 100.64.0.0/10 (Shared Address Space / CGNAT RFC 6598)
+    if (b1 === 100 && b2 >= 64 && b2 <= 127) return true;
     // 169.254.0.0/16 (Link-local / Cloud metadata)
     if (b1 === 169 && b2 === 254) return true;
-    // 172.16.0.0/12 (Private)
+    // 172.16.0.0/12 (Private RFC 1918)
     if (b1 === 172 && b2 >= 16 && b2 <= 31) return true;
-    // 192.168.0.0/16 (Private)
+    // 192.0.0.0/24 (IETF Protocol Assignments)
+    if (b1 === 192 && b2 === 0 && b3 === 0) return true;
+    // 192.0.2.0/24 (TEST-NET-1)
+    if (b1 === 192 && b2 === 0 && b3 === 2) return true;
+    // 192.168.0.0/16 (Private RFC 1918)
     if (b1 === 192 && b2 === 168) return true;
+    // 198.18.0.0/15 (Benchmarking RFC 2544)
+    if (b1 === 198 && (b2 === 18 || b2 === 19)) return true;
+    // 198.51.100.0/24 (TEST-NET-2)
+    if (b1 === 198 && b2 === 51 && b3 === 100) return true;
+    // 203.0.113.0/24 (TEST-NET-3)
+    if (b1 === 203 && b2 === 0 && b3 === 113) return true;
+    // 224.0.0.0/4 (Multicast RFC 5771)
+    if (b1 >= 224 && b1 <= 239) return true;
+    // 240.0.0.0/4 (Reserved / Future use RFC 1112)
+    if (b1 >= 240) return true;
   }
 
   return false;
@@ -209,7 +226,7 @@ export class WebFetchTool extends BaseTool {
           signal: controller.signal,
           redirect: "manual",
           headers: {
-            "User-Agent": "Homogenous-CLI/4.0.3",
+            "User-Agent": "Homogenous-CLI/4.1.0",
             Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5",
           },
         });

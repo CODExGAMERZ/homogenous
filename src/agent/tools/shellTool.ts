@@ -34,12 +34,18 @@ function recordAuditLog(entry: AuditLogEntry, workspaceRoot: string = process.cw
     if (fs.existsSync(memoryDir)) {
       const logFile = path.join(memoryDir, "audit.log");
       // Sanitize log entry to prevent token and secret key exposure
+      const safeCommand = entry.command
+        .replace(
+          /((?:postgres|postgresql|mysql|mongodb(?:\+srv)?|redis|amqp|mssql):\/\/[^:\s\/]+:)([^@\s]+)(@)/gi,
+          "$1[REDACTED_PASSWORD]$3"
+        )
+        .replace(
+          /(?:bearer\s+[A-Za-z0-9_.-]{16,}|sk-(?:proj-|ant-|svcacct-)?[A-Za-z0-9_.-]{16,}|gsk_[A-Za-z0-9_.-]{16,}|nvapi-[A-Za-z0-9_.-]{16,}|ghp_[A-Za-z0-9_.-]{16,}|gho_[A-Za-z0-9_.-]{16,}|github_pat_[A-Za-z0-9_.-]{20,}|glpat-[A-Za-z0-9_.-]{16,}|hf_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9_.-]{10,}|AKIA[0-9A-Z]{16}|enc:v1:[a-f0-9:]+|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9-_./+=]{10,})/gi,
+          "[REDACTED]"
+        );
       const safeEntry = {
         ...entry,
-        command: entry.command.replace(
-          /(bearer\s+[A-Za-z0-9_.-]+|sk-[A-Za-z0-9_.-]+|gsk_[A-Za-z0-9_.-]+|nvapi-[A-Za-z0-9_.-]+|ghp_[A-Za-z0-9_.-]+|gho_[A-Za-z0-9_.-]+|glpat-[A-Za-z0-9_.-]+|AKIA[0-9A-Z]{16}|enc:v1:[a-f0-9:]+)/gi,
-          "[REDACTED]"
-        ),
+        command: safeCommand,
       };
       fs.appendFileSync(logFile, JSON.stringify(safeEntry) + "\n", { encoding: "utf-8", mode: 0o600 });
     }

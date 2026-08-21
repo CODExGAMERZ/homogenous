@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import chalk from "chalk";
@@ -14,7 +15,7 @@ import { McpConfigResolver } from "../src/mcp/config.js";
 import { McpClientManager } from "../src/mcp/McpClientManager.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-let pkgVersion = "4.0.3";
+let pkgVersion = "4.1.0";
 try {
   const pkgPath = path.resolve(__dirname, "../../package.json");
   if (fs.existsSync(pkgPath)) {
