@@ -12,7 +12,11 @@ export class MockProvider implements InferenceProvider {
   readonly id = "mock" as const;
 
   async ping(): Promise<{ ok: boolean; models?: string[]; error?: string }> {
-    return { ok: true, models: ["demo-model"] };
+    return { ok: true, models: ["demo-mode"] };
+  }
+
+  async listModels(): Promise<string[]> {
+    return ["demo-mode"];
   }
 
   capabilities(_model: string): ProviderCapabilities {

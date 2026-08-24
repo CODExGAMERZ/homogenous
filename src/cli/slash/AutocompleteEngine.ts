@@ -376,8 +376,8 @@ export class AutocompleteEngine {
   }
 
   /**
-   * Complete models collector showing ALL models present in the system,
-   * sorted from highest parameter capacity (671B, 550B, 405B...) down to lowest.
+   * Dynamic models collector showing ONLY models for configured API keys and running local servers,
+   * sorted from highest parameter capacity down to lowest.
    */
   private getAvailableModelsList(): CachedModelItem[] {
     const now = Date.now();
@@ -388,131 +388,93 @@ export class AutocompleteEngine {
     const registry = ProviderRegistry.getInstance();
     const list: CachedModelItem[] = [];
 
-    // 1. Local Ollama installed models
-    const ollamaP = registry.getProvider("ollama") as any;
-    if (ollamaP && typeof ollamaP.getInstalledModels === "function") {
-      try {
-        for (const m of ollamaP.getInstalledModels()) {
-          const params = parseModelParams(m);
-          list.push({ id: `ollama/${m}`, desc: `Local Ollama (${params > 0 ? `${params}B` : "Local"})`, params });
+    // Trigger async discovery in background to refresh registry cache
+    registry.getActiveModels().then((active) => {
+      this.cachedModelsList = active
+        .filter((m) => m.id !== "mock/demo-mode")
+        .map((m) => ({
+          id: m.id,
+          desc: `${m.tag} [${m.params > 0 ? (m.params >= 1 ? `${m.params}B` : `${Math.round(m.params * 1000)}M`) : "Active"}]`,
+          params: m.params,
+        }));
+      this.lastModelCacheTime = Date.now();
+    }).catch(() => {});
+
+    // If active models exist in registry cache:
+    const activeFromRegistry = (registry as any).cachedActiveModels as Array<{ id: string; modelName: string; tag: string; params: number; providerId: string }> | null;
+    if (activeFromRegistry && activeFromRegistry.length > 0) {
+      for (const m of activeFromRegistry) {
+        if (m.id === "mock/demo-mode") continue;
+        const pStr = m.params > 0 ? (m.params >= 1 ? `${m.params}B` : `${Math.round(m.params * 1000)}M`) : "Active";
+        list.push({
+          id: m.id,
+          desc: `${m.tag} [${pStr}]`,
+          params: m.params,
+        });
+      }
+    } else {
+      // Synchronously scan only providers with active keys or running daemons
+      const cloudProviders: KeyProvider[] = [
+        "anthropic",
+        "openai",
+        "groq",
+        "nvidia",
+        "deepseek",
+        "openrouter",
+        "mistral",
+        "together",
+      ];
+
+      for (const pId of cloudProviders) {
+        if (!KeychainService.getApiKey(pId)) {
+          continue; // Zero keys = Zero models
         }
-      } catch {
-        // Ignore
-      }
-    }
-
-    // 2. Local LM Studio installed models
-    const lmStudioP = registry.getProvider("lmstudio") as any;
-    if (lmStudioP && typeof lmStudioP.getInstalledModels === "function") {
-      try {
-        for (const m of lmStudioP.getInstalledModels()) {
-          const params = parseModelParams(m);
-          list.push({ id: `lmstudio/${m}`, desc: `Local LM Studio (${params > 0 ? `${params}B` : "Local"})`, params });
+        const prov = registry.getProvider(pId);
+        const provModels = (prov as any)?.cachedModels || (prov as any)?.installedModels || [];
+        for (const m of provModels) {
+          const fullId = m.startsWith(`${pId}/`) ? m : `${pId}/${m}`;
+          const cleanName = m.startsWith(`${pId}/`) ? m.slice(pId.length + 1) : m;
+          const params = parseModelParams(cleanName);
+          const pStr = params > 0 ? (params >= 1 ? `${params}B` : `${Math.round(params * 1000)}M`) : "Active";
+          list.push({
+            id: fullId,
+            desc: `${pId.toUpperCase()} [${pStr}]`,
+            params,
+          });
         }
-      } catch {
-        // Ignore
+      }
+
+      // Local Ollama
+      const ollama = registry.getProvider("ollama") as any;
+      if (ollama && ollama.getInstalledModels) {
+        for (const m of ollama.getInstalledModels()) {
+          const params = parseModelParams(m);
+          list.push({
+            id: `ollama/${m}`,
+            desc: `Local Ollama [${params > 0 ? `${params}B` : "Local"}]`,
+            params,
+          });
+        }
+      }
+
+      // Local LM Studio
+      const lmstudio = registry.getProvider("lmstudio") as any;
+      if (lmstudio && lmstudio.getInstalledModels) {
+        for (const m of lmstudio.getInstalledModels()) {
+          const params = parseModelParams(m);
+          list.push({
+            id: `lmstudio/${m}`,
+            desc: `Local LM Studio [${params > 0 ? `${params}B` : "Local"}]`,
+            params,
+          });
+        }
       }
     }
 
-    // 3. All Cloud & Frontier Models Present
-    const cloudProviders: KeyProvider[] = [
-      "deepseek",
-      "together",
-      "nvidia",
-      "openrouter",
-      "anthropic",
-      "openai",
-      "mistral",
-      "groq",
-    ];
-
-    for (const p of cloudProviders) {
-      if (!KeychainService.getApiKey(p)) {
-        continue;
-      }
-
-      if (p === "deepseek") {
-        list.push(
-          { id: "deepseek/deepseek-reasoner", desc: "DeepSeek R1 (671B Reasoning)", params: 671 },
-          { id: "deepseek/deepseek-chat", desc: "DeepSeek V3 (671B MoE)", params: 671 }
-        );
-      } else if (p === "together") {
-        list.push(
-          { id: "together/meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", desc: "Llama 3.1 405B Frontier", params: 405 },
-          { id: "together/mistralai/Mixtral-8x22B-Instruct-v0.1", desc: "Mixtral 8x22B MoE (176B)", params: 176 },
-          { id: "together/meta-llama/Llama-3.3-70B-Instruct-Turbo", desc: "Llama 3.3 (70B)", params: 70 }
-        );
-      } else if (p === "nvidia") {
-        list.push(
-          { id: "nvidia/nemotron-3-ultra-550b-a55b", desc: "Nemotron 3 Ultra (550B)", params: 550 },
-          { id: "nvidia/deepseek-ai/deepseek-r1", desc: "DeepSeek R1 Frontier (671B)", params: 671 },
-          { id: "nvidia/nvidia/nemotron-4-340b-instruct", desc: "Nemotron 4 (340B)", params: 340 },
-          { id: "nvidia/mistralai/mixtral-8x22b-instruct-v0.1", desc: "Mixtral 8x22B MoE (176B)", params: 176 },
-          { id: "nvidia/mistralai/mistral-large-2-instruct", desc: "Mistral Large 2 (123B)", params: 123 },
-          { id: "nvidia/meta/llama-3.2-90b-vision-instruct", desc: "Llama 3.2 Vision (90B)", params: 90 },
-          { id: "nvidia/qwen/qwen2.5-72b-instruct", desc: "Qwen 2.5 72B (72B)", params: 72 },
-          { id: "nvidia/meta/llama-3.3-70b-instruct", desc: "Llama 3.3 Frontier (70B)", params: 70 },
-          { id: "nvidia/nvidia/llama-3.1-nemotron-70b-instruct", desc: "Nemotron 70B (70B)", params: 70 },
-          { id: "nvidia/meta/llama-3.1-70b-instruct", desc: "Llama 3.1 (70B)", params: 70 },
-          { id: "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1.5", desc: "Nemotron Super (49B)", params: 49 },
-          { id: "nvidia/qwen/qwen2.5-coder-32b-instruct", desc: "Qwen 2.5 Coder (32B)", params: 32 },
-          { id: "nvidia/google/gemma-2-27b-it", desc: "Gemma 2 (27B)", params: 27 },
-          { id: "nvidia/mistralai/codestral-22b-instruct-v0.1", desc: "Codestral (22B Coding)", params: 22 },
-          { id: "nvidia/google/gemma-2-9b-it", desc: "Gemma 2 (9B)", params: 90 },
-          { id: "nvidia/meta/llama-3.1-8b-instruct", desc: "Llama 3.1 (8B)", params: 8 },
-          { id: "nvidia/mistralai/mistral-7b-instruct-v0.3", desc: "Mistral 7B (7B)", params: 7 },
-          { id: "nvidia/nvidia/nemotron-mini-4b-instruct", desc: "Nemotron Mini (4B)", params: 4 },
-          { id: "nvidia/meta/llama-3.2-3b-instruct", desc: "Llama 3.2 (3B)", params: 3 },
-          { id: "nvidia/google/gemma-2-2b-it", desc: "Gemma 2 (2B)", params: 2 },
-          { id: "nvidia/meta/llama-3.2-1b-instruct", desc: "Llama 3.2 (1B)", params: 1 }
-        );
-      } else if (p === "openrouter") {
-        list.push(
-          { id: "openrouter/deepseek/deepseek-r1", desc: "DeepSeek R1 Router (671B)", params: 671 },
-          { id: "openrouter/anthropic/claude-3.5-sonnet", desc: "Claude 3.5 Sonnet Router (200B)", params: 200 }
-        );
-      } else if (p === "anthropic") {
-        list.push(
-          { id: "anthropic/claude-3-7-sonnet-20250219", desc: "Claude 3.7 Sonnet Hybrid Reasoning (200B)", params: 200 },
-          { id: "anthropic/claude-3-5-sonnet-20241022", desc: "Claude 3.5 Sonnet v2 (200B)", params: 200 },
-          { id: "anthropic/claude-3-opus-20240229", desc: "Claude 3 Opus (200B)", params: 200 },
-          { id: "anthropic/claude-3-5-haiku-20241022", desc: "Claude 3.5 Haiku (8B)", params: 8 }
-        );
-      } else if (p === "openai") {
-        list.push(
-          { id: "openai/gpt-4o", desc: "GPT-4o Frontier (200B)", params: 200 },
-          { id: "openai/o1", desc: "o1 Frontier Reasoning (200B)", params: 200 },
-          { id: "openai/chatgpt-4o-latest", desc: "ChatGPT-4o Continuous (200B)", params: 200 },
-          { id: "openai/o3-mini", desc: "o3-mini Fast Reasoning (8B)", params: 8 },
-          { id: "openai/o1-mini", desc: "o1-mini Reasoning (8B)", params: 8 },
-          { id: "openai/gpt-4o-mini", desc: "GPT-4o Mini Fast (8B)", params: 8 }
-        );
-      } else if (p === "mistral") {
-        list.push(
-          { id: "mistral/mistral-large-latest", desc: "Mistral Large (123B)", params: 123 },
-          { id: "mistral/codestral-latest", desc: "Codestral (22B Coding)", params: 22 }
-        );
-      } else if (p === "groq") {
-        list.push(
-          { id: "groq/openai/gpt-oss-120b", desc: "GPT-OSS 120B (Free Tier)", params: 120 },
-          { id: "groq/deepseek-r1-distill-llama-70b", desc: "DeepSeek R1 70B Distill (Free Tier)", params: 70 },
-          { id: "groq/llama-3.3-70b-versatile", desc: "Llama 3.3 70B (Free Tier)", params: 70 },
-          { id: "groq/llama-3.3-70b-specdec", desc: "Llama 3.3 SpecDec (Free Tier)", params: 70 },
-          { id: "groq/compound", desc: "Groq Compound (70B)", params: 70 },
-          { id: "groq/qwen-2.5-coder-32b", desc: "Qwen 2.5 Coder 32B (Free Tier)", params: 32 },
-          { id: "groq/qwen/qwen3.6-27b", desc: "Qwen 3.6 27B (Free Tier)", params: 27 },
-          { id: "groq/llama-3.1-8b-instant", desc: "Llama 3.1 8B Instant (Free Tier)", params: 8 }
-        );
-      }
-    }
-
-    // Always include Demo Mode
-    list.push({ id: "mock/demo-mode", desc: "Demo Mode (Offline)", params: 0 });
-
-    // Sort all models from highest parameter scale to lowest
+    // Sort models from highest parameter capacity down to lowest
     list.sort((a, b) => {
       if (b.params !== a.params) {
-        return b.params - a.params; // Highest capacity first
+        return b.params - a.params;
       }
       return a.id.localeCompare(b.id);
     });

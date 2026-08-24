@@ -102,6 +102,8 @@ export interface InferenceProvider {
 
   ping(): Promise<{ ok: boolean; models?: string[]; error?: string }>;
 
+  listModels?(forceRefresh?: boolean): Promise<string[]>;
+
   chat(request: ChatRequest): Promise<ChatResponse>;
 
   stream(request: ChatRequest): AsyncIterable<StreamEvent>;

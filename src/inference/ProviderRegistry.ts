@@ -34,10 +34,24 @@ export interface ProviderResolution {
   isFreeTier: boolean;
 }
 
+import { KeychainService, type KeyProvider } from "./keychain.js";
+import { parseModelParams } from "./modelParams.js";
+
+export interface ActiveModelItem {
+  id: string;
+  providerId: string;
+  modelName: string;
+  tag: string;
+  ready: boolean;
+  params: number;
+}
+
 export class ProviderRegistry {
   private static instance: ProviderRegistry;
   private providers: Map<string, InferenceProvider>;
   private activeLocalProviders: Set<string>;
+  private cachedActiveModels: ActiveModelItem[] | null = null;
+  private lastModelDiscoveryTime = 0;
 
   private constructor() {
     this.providers = new Map();
@@ -62,6 +76,19 @@ export class ProviderRegistry {
       ProviderRegistry.instance = new ProviderRegistry();
     }
     return ProviderRegistry.instance;
+  }
+
+  /**
+   * Clears cached active models list and resets client states.
+   */
+  public invalidateModelCache(): void {
+    this.cachedActiveModels = null;
+    this.lastModelDiscoveryTime = 0;
+    for (const provider of this.providers.values()) {
+      if ("resetClient" in provider && typeof (provider as any).resetClient === "function") {
+        (provider as any).resetClient();
+      }
+    }
   }
 
   /**
@@ -92,6 +119,127 @@ export class ProviderRegistry {
   }
 
   /**
+   * Dynamically collects ONLY models that have active API keys or running local daemons.
+   * If no API keys or local servers are detected, returns only the Demo Mode fallback.
+   */
+  public async getActiveModels(forceRefresh = false): Promise<ActiveModelItem[]> {
+    const now = Date.now();
+    if (!forceRefresh && this.cachedActiveModels && now - this.lastModelDiscoveryTime < 30000) {
+      return this.cachedActiveModels;
+    }
+
+    const activeList: ActiveModelItem[] = [];
+
+    // 1. Check local Ollama
+    const ollama = this.providers.get("ollama");
+    if (ollama) {
+      try {
+        const models = ollama.listModels ? await ollama.listModels(forceRefresh) : (await ollama.ping()).models || [];
+        for (const m of models) {
+          const params = parseModelParams(m);
+          activeList.push({
+            id: `ollama/${m}`,
+            providerId: "ollama",
+            modelName: m,
+            tag: "Local Ollama",
+            ready: true,
+            params,
+          });
+        }
+      } catch {
+        // Local daemon not available
+      }
+    }
+
+    // 2. Check local LM Studio
+    const lmstudio = this.providers.get("lmstudio");
+    if (lmstudio) {
+      try {
+        const models = lmstudio.listModels ? await lmstudio.listModels(forceRefresh) : (await lmstudio.ping()).models || [];
+        for (const m of models) {
+          const params = parseModelParams(m);
+          activeList.push({
+            id: `lmstudio/${m}`,
+            providerId: "lmstudio",
+            modelName: m,
+            tag: "Local LM Studio",
+            ready: true,
+            params,
+          });
+        }
+      } catch {
+        // Local LM Studio not available
+      }
+    }
+
+    // 3. Check cloud providers ONLY when an API key is fed into the system
+    const cloudProviderDefs: Array<{ id: KeyProvider; name: string }> = [
+      { id: "deepseek", name: "DeepSeek" },
+      { id: "together", name: "Together AI" },
+      { id: "nvidia", name: "NVIDIA NIM" },
+      { id: "openrouter", name: "OpenRouter" },
+      { id: "anthropic", name: "Anthropic Claude" },
+      { id: "openai", name: "OpenAI" },
+      { id: "mistral", name: "Mistral AI" },
+      { id: "groq", name: "Groq" },
+    ];
+
+    for (const def of cloudProviderDefs) {
+      const apiKey = KeychainService.getApiKey(def.id);
+      if (!apiKey) {
+        // Strictly skip providers without credentials - NO models shown
+        continue;
+      }
+
+      const p = this.providers.get(def.id);
+      if (!p) continue;
+
+      try {
+        const models = p.listModels ? await p.listModels(forceRefresh) : (await p.ping()).models || [];
+        for (const m of models) {
+          const fullId = m.startsWith(`${def.id}/`) ? m : `${def.id}/${m}`;
+          const cleanModelName = m.startsWith(`${def.id}/`) ? m.slice(def.id.length + 1) : m;
+          const params = parseModelParams(cleanModelName);
+          activeList.push({
+            id: fullId,
+            providerId: def.id,
+            modelName: cleanModelName,
+            tag: `${def.name} (Key Ready)`,
+            ready: true,
+            params,
+          });
+        }
+      } catch {
+        // Skip on authentication or network error
+      }
+    }
+
+    // 4. If no models available across all sources, add Demo Mode
+    if (activeList.length === 0) {
+      activeList.push({
+        id: "mock/demo-mode",
+        providerId: "mock",
+        modelName: "demo-mode",
+        tag: "Demo Mode (Offline)",
+        ready: true,
+        params: 0,
+      });
+    }
+
+    // 5. Sort from highest parameter scale to lowest
+    activeList.sort((a, b) => {
+      if (b.params !== a.params) {
+        return b.params - a.params;
+      }
+      return a.id.localeCompare(b.id);
+    });
+
+    this.cachedActiveModels = activeList;
+    this.lastModelDiscoveryTime = now;
+    return activeList;
+  }
+
+  /**
    * Resolves the appropriate provider and model for a given task type,
    * enforcing strict cost-tier isolation for local/free triage tasks,
    * dynamically picking installed models (e.g. qwen2.5-coder:1.5b),
@@ -112,23 +260,26 @@ export class ProviderRegistry {
 
     const isFreeTask = FREE_TIER_TASKS.includes(taskType);
 
-    // Try preferred primary provider first
+    // Try preferred primary provider first if key or server exists
     const primaryProvider = this.providers.get(preferredProviderId);
     if (primaryProvider) {
-      const pingRes = await primaryProvider.ping();
-      if (pingRes.ok) {
-        let activeModel = preferredModel;
-        if (preferredProviderId === "ollama") {
-          const installed = (primaryProvider as OllamaProvider).getInstalledModels();
-          if (installed.length > 0 && !installed.includes(preferredModel)) {
-            activeModel = installed[0];
+      const isLocal = preferredProviderId === "ollama" || preferredProviderId === "lmstudio" || preferredProviderId === "mock";
+      const hasKey = isLocal || !!KeychainService.getApiKey(preferredProviderId as KeyProvider);
+
+      if (hasKey) {
+        const pingRes = await primaryProvider.ping();
+        if (pingRes.ok) {
+          let activeModel = preferredModel;
+          const available = primaryProvider.listModels ? await primaryProvider.listModels() : pingRes.models || [];
+          if (available.length > 0 && !available.includes(preferredModel)) {
+            activeModel = available[0];
           }
+          return {
+            provider: primaryProvider,
+            model: activeModel,
+            isFreeTier: isFreeTask || primaryProvider.capabilities(activeModel).isLocal,
+          };
         }
-        return {
-          provider: primaryProvider,
-          model: activeModel,
-          isFreeTier: isFreeTask || primaryProvider.capabilities(activeModel).isLocal,
-        };
       }
     }
 
@@ -138,17 +289,13 @@ export class ProviderRegistry {
       for (const candId of freeCandidates) {
         const candProvider = this.providers.get(candId);
         if (!candProvider) continue;
+        const hasKey = candId === "ollama" || candId === "lmstudio" || !!KeychainService.getApiKey(candId as KeyProvider);
+        if (!hasKey) continue;
+
         const pingRes = await candProvider.ping();
         if (pingRes.ok) {
-          let defaultModel = "qwen2.5-coder:3b";
-          if (candId === "ollama") {
-            const installed = (candProvider as OllamaProvider).getInstalledModels();
-            defaultModel = installed.length > 0 ? installed[0] : "qwen2.5-coder:3b";
-          } else if (candId === "lmstudio") {
-            defaultModel = "local-model";
-          } else if (candId === "groq") {
-            defaultModel = "llama-3.1-8b-instant";
-          }
+          const available = candProvider.listModels ? await candProvider.listModels() : pingRes.models || [];
+          const defaultModel = available.length > 0 ? available[0] : (candId === "groq" ? "llama-3.3-70b-versatile" : "local-model");
 
           return {
             provider: candProvider,
@@ -159,7 +306,7 @@ export class ProviderRegistry {
       }
     }
 
-    // Fallback resolution respect user's config.fallbackOrder priority
+    // Fallback resolution respecting user's config.fallbackOrder priority
     const fallbackCandidates = config.fallbackOrder && config.fallbackOrder.length > 0
       ? config.fallbackOrder
       : ["ollama", "lmstudio", "groq", "openai", "anthropic", "nvidia", "deepseek", "openrouter", "mistral", "together"];
@@ -167,21 +314,14 @@ export class ProviderRegistry {
     for (const candId of fallbackCandidates) {
       const candProvider = this.providers.get(candId);
       if (!candProvider) continue;
+      const isLocal = candId === "ollama" || candId === "lmstudio" || candId === "mock";
+      const hasKey = isLocal || !!KeychainService.getApiKey(candId as KeyProvider);
+      if (!hasKey) continue;
+
       const pingRes = await candProvider.ping();
       if (pingRes.ok) {
-        let defaultModel = "claude-3-5-sonnet-20241022";
-        if (candId === "anthropic") defaultModel = "claude-3-5-sonnet-20241022";
-        else if (candId === "openai") defaultModel = "gpt-4o";
-        else if (candId === "deepseek") defaultModel = "deepseek-chat";
-        else if (candId === "nvidia") defaultModel = "nvidia/llama-3.1-nemotron-70b-instruct";
-        else if (candId === "openrouter") defaultModel = "anthropic/claude-3.5-sonnet";
-        else if (candId === "mistral") defaultModel = "mistral-large-latest";
-        else if (candId === "together") defaultModel = "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo";
-        else if (candId === "groq") defaultModel = "llama-3.1-8b-instant";
-        else if (candId === "ollama") {
-          const installed = (candProvider as OllamaProvider).getInstalledModels();
-          defaultModel = installed.length > 0 ? installed[0] : "qwen2.5-coder:3b";
-        } else if (candId === "lmstudio") defaultModel = "local-model";
+        const available = candProvider.listModels ? await candProvider.listModels() : pingRes.models || [];
+        let defaultModel = available.length > 0 ? available[0] : "gpt-4o";
 
         if (!isFreeTask && (candId === "ollama" || candId === "lmstudio" || candId === "groq")) {
           console.log(

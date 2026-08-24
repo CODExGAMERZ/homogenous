@@ -47,6 +47,9 @@ export const metaCommands: SlashCommand[] = [
       await KeychainService.setApiKey(providerStr, key);
       ConfigResolver.getInstance().loadConfig();
 
+      const registry = ProviderRegistry.getInstance();
+      registry.invalidateModelCache();
+
       try {
         const { AutocompleteEngine } = await import("../AutocompleteEngine.js");
         AutocompleteEngine.getInstance().invalidateCache();
@@ -54,33 +57,29 @@ export const metaCommands: SlashCommand[] = [
         // Ignore
       }
 
-      // Optional health ping check
-      const registryProvider = ProviderRegistry.getInstance().getProvider(providerStr);
+      // Live dynamic model discovery and health check for the newly configured key
+      const registryProvider = registry.getProvider(providerStr);
       const pingTarget = registryProvider || ctx.provider;
       let pingMsg = "";
+      let fetchedModels: string[] = [];
+
       try {
         const pingResult = await pingTarget.ping();
         if (pingResult.ok) {
-          pingMsg = " (Live connection verified ✓)";
+          fetchedModels = pingResult.models || [];
+          pingMsg = ` (Live connection verified ✓ - ${fetchedModels.length} models accessible)`;
         } else if (pingResult.error) {
-          pingMsg = ` (Note: Ping test notice: ${pingResult.error})`;
+          pingMsg = ` (Note: Verification notice: ${pingResult.error})`;
         }
       } catch {
         // Ping error is non-fatal for persistent storage
       }
 
-      // Auto-switch active session provider and compatible default model
-      const defaultModels: Record<string, string> = {
-        nvidia: "meta/llama-3.3-70b-instruct",
-        groq: "llama-3.3-70b-versatile",
-        anthropic: "claude-3-5-sonnet-20241022",
-        openai: "gpt-4o",
-        deepseek: "deepseek-chat",
-        mistral: "mistral-large-latest",
-        together: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
-        openrouter: "anthropic/claude-3.5-sonnet",
-      };
-      const nextModel = defaultModels[providerStr] || "gpt-4o";
+      // Dynamically select the primary model returned for this key
+      let nextModel = fetchedModels.length > 0 ? fetchedModels[0] : "gpt-4o";
+      if (nextModel.startsWith(`${providerStr}/`)) {
+        nextModel = nextModel.slice(providerStr.length + 1);
+      }
 
       if (registryProvider && ctx.setProvider) {
         ctx.setProvider(registryProvider);
@@ -99,7 +98,7 @@ export const metaCommands: SlashCommand[] = [
     description: "Unregister and permanently delete a stored provider API key",
     category: "config",
     usage: "/logout [provider] or /unregister [provider]",
-    execute: async (args) => {
+    execute: async (args, ctx) => {
       const providerStr = args[0]?.toLowerCase() as KeyProvider;
       const validProviders = ["anthropic", "openai", "groq", "nvidia", "deepseek", "openrouter", "mistral", "together"];
 
@@ -110,11 +109,21 @@ export const metaCommands: SlashCommand[] = [
       await KeychainService.deleteApiKey(providerStr);
       ConfigResolver.getInstance().loadConfig();
 
+      const registry = ProviderRegistry.getInstance();
+      registry.invalidateModelCache();
+
       try {
         const { AutocompleteEngine } = await import("../AutocompleteEngine.js");
         AutocompleteEngine.getInstance().invalidateCache();
       } catch {
         // Ignore
+      }
+
+      // If active session was using this provider, auto-route to next available provider
+      if (ctx && ctx.provider && ctx.provider.id === providerStr) {
+        const fallbackRes = await registry.routeFor("complexEdit");
+        ctx.setProvider?.(fallbackRes.provider);
+        ctx.setModel?.(fallbackRes.model);
       }
 
       return {
@@ -127,7 +136,7 @@ export const metaCommands: SlashCommand[] = [
     description: "Alias for /logout: unregister and permanently delete a stored provider API key",
     category: "config",
     usage: "/unregister [provider]",
-    execute: async (args) => {
+    execute: async (args, ctx) => {
       const providerStr = args[0]?.toLowerCase() as KeyProvider;
       const validProviders = ["anthropic", "openai", "groq", "nvidia", "deepseek", "openrouter", "mistral", "together"];
 
@@ -138,11 +147,21 @@ export const metaCommands: SlashCommand[] = [
       await KeychainService.deleteApiKey(providerStr);
       ConfigResolver.getInstance().loadConfig();
 
+      const registry = ProviderRegistry.getInstance();
+      registry.invalidateModelCache();
+
       try {
         const { AutocompleteEngine } = await import("../AutocompleteEngine.js");
         AutocompleteEngine.getInstance().invalidateCache();
       } catch {
         // Ignore
+      }
+
+      // If active session was using this provider, auto-route to next available provider
+      if (ctx && ctx.provider && ctx.provider.id === providerStr) {
+        const fallbackRes = await registry.routeFor("complexEdit");
+        ctx.setProvider?.(fallbackRes.provider);
+        ctx.setModel?.(fallbackRes.model);
       }
 
       return {

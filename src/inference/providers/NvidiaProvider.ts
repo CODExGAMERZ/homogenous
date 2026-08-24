@@ -14,17 +14,30 @@ export class NvidiaProvider extends OpenAIProvider {
     return this.installedModels;
   }
 
-  override async ping(): Promise<{ ok: boolean; models?: string[]; error?: string }> {
+  public override async listModels(forceRefresh = false): Promise<string[]> {
+    let apiKey: string;
     try {
-      const apiKey = this.getApiKey();
-      const headers: Record<string, string> = {};
-      if (apiKey) {
-        headers["Authorization"] = `Bearer ${apiKey}`;
-      }
+      apiKey = this.getApiKey();
+    } catch {
+      this.installedModels = [];
+      this.cachedModels = null;
+      return [];
+    }
+
+    const now = Date.now();
+    if (!forceRefresh && this.cachedModels && now - this.lastFetchTime < 30000) {
+      return this.cachedModels;
+    }
+
+    try {
       const res = await fetch("https://integrate.api.nvidia.com/v1/models", {
-        headers,
+        headers: { Authorization: `Bearer ${apiKey}` },
       });
-      if (!res.ok) return { ok: false, error: `HTTP ${res.status}: ${res.statusText}` };
+      if (!res.ok) {
+        this.installedModels = [];
+        this.cachedModels = null;
+        return [];
+      }
       const data = (await res.json()) as { data?: Array<{ id: string }> };
       const models =
         data.data
@@ -37,33 +50,35 @@ export class NvidiaProvider extends OpenAIProvider {
               !m.id.includes("reward") &&
               !m.id.includes("clip") &&
               !m.id.includes("detector") &&
-              !m.id.includes("calibrate")
+              !m.id.includes("calibrate") &&
+              !m.id.includes("asr") &&
+              !m.id.includes("tts")
           )
-          .map((m) => m.id) || [
-          "nvidia/nemotron-3-ultra-550b-a55b",
-          "deepseek-ai/deepseek-r1",
-          "nvidia/nemotron-4-340b-instruct",
-          "mistralai/mixtral-8x22b-instruct-v0.1",
-          "mistralai/mistral-large-2-instruct",
-          "meta/llama-3.2-90b-vision-instruct",
-          "qwen/qwen2.5-72b-instruct",
-          "meta/llama-3.3-70b-instruct",
-          "nvidia/llama-3.1-nemotron-70b-instruct",
-          "meta/llama-3.1-70b-instruct",
-          "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-          "qwen/qwen2.5-coder-32b-instruct",
-          "google/gemma-2-27b-it",
-          "mistralai/codestral-22b-instruct-v0.1",
-          "google/gemma-2-9b-it",
-          "meta/llama-3.1-8b-instruct",
-          "mistralai/mistral-7b-instruct-v0.3",
-          "nvidia/nemotron-mini-4b-instruct",
-          "meta/llama-3.2-3b-instruct",
-          "google/gemma-2-2b-it",
-          "meta/llama-3.2-1b-instruct",
-        ];
+          .map((m) => m.id) || [];
+
       this.installedModels = models;
-      return { ok: true, models };
+      this.cachedModels = models;
+      this.lastFetchTime = now;
+      return models;
+    } catch {
+      this.installedModels = [];
+      this.cachedModels = null;
+      return [];
+    }
+  }
+
+  override async ping(): Promise<{ ok: boolean; models?: string[]; error?: string }> {
+    try {
+      const models = await this.listModels(true);
+      if (models.length > 0) {
+        return { ok: true, models };
+      }
+      const apiKey = this.getApiKey();
+      const res = await fetch("https://integrate.api.nvidia.com/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status}: ${res.statusText}` };
+      return { ok: true, models: [] };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }

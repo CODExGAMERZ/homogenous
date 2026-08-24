@@ -2,6 +2,7 @@ import assert from "node:assert";
 import test from "node:test";
 import { AutocompleteEngine } from "../../src/cli/slash/AutocompleteEngine.js";
 import { KeychainService } from "../../src/inference/keychain.js";
+import { ProviderRegistry } from "../../src/inference/ProviderRegistry.js";
 
 test("AutocompleteEngine supports fuzzy matching for slash commands", () => {
   const engine = AutocompleteEngine.getInstance();
@@ -73,20 +74,29 @@ test("KeychainService uses in-memory cache for 0ms retrieval latency", () => {
 
 test("AutocompleteEngine sorts model suggestions from highest parameters to lowest", () => {
   const engine = AutocompleteEngine.getInstance();
+  const registry = ProviderRegistry.getInstance();
   process.env.NVIDIA_API_KEY = "nvapi-test-key";
   process.env.GROQ_API_KEY = "gsk-test-key";
+
   engine.invalidateCache();
+  registry.invalidateModelCache();
+
+  const nvidia = registry.getProvider("nvidia");
+  if (nvidia) (nvidia as any).cachedModels = ["nvidia/nemotron-3-ultra-550b-a55b", "meta/llama-3.1-8b-instruct"];
+  const groq = registry.getProvider("groq");
+  if (groq) (groq as any).cachedModels = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
 
   const modelSuggestions = engine.getSuggestions("/model ");
   assert.ok(modelSuggestions.length > 0);
 
-  // First item should be the highest parameter frontier model (671B DeepSeek, 550B Nemotron, 405B Llama, etc.)
+  // First item should be the highest parameter frontier model (550B Nemotron, 70B Llama, etc.)
   const first = modelSuggestions[0];
-  assert.ok(first.value.includes("deepseek") || first.value.includes("550b") || first.value.includes("405b") || first.value.includes("340b"));
+  assert.ok(first.value.includes("550b") || first.value.includes("70b"));
 
   delete process.env.NVIDIA_API_KEY;
   delete process.env.GROQ_API_KEY;
   engine.invalidateCache();
+  registry.invalidateModelCache();
 });
 
 test("KeychainService persists BYOK keys permanently until unregistered", async () => {

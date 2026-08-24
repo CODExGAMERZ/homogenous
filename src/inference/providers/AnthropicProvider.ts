@@ -17,8 +17,13 @@ export class AnthropicProvider implements InferenceProvider {
   readonly id = "anthropic" as const;
   private client: Anthropic | null = null;
 
+  private cachedModels: string[] | null = null;
+  private lastFetchTime = 0;
+
   public resetClient(): void {
     this.client = null;
+    this.cachedModels = null;
+    this.lastFetchTime = 0;
   }
 
   private getClient(): Anthropic {
@@ -34,26 +39,74 @@ export class AnthropicProvider implements InferenceProvider {
     return this.client;
   }
 
-  async ping(): Promise<{ ok: boolean; models?: string[]; error?: string }> {
+  public async listModels(forceRefresh = false): Promise<string[]> {
+    const apiKey = KeychainService.getApiKey("anthropic");
+    if (!apiKey) {
+      this.cachedModels = null;
+      return [];
+    }
+
+    const now = Date.now();
+    if (!forceRefresh && this.cachedModels && now - this.lastFetchTime < 30000) {
+      return this.cachedModels;
+    }
+
     try {
+      // 1. Try querying the Anthropic /v1/models endpoint directly with authenticated headers
+      const res = await fetch("https://api.anthropic.com/v1/models", {
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+      });
+
+      if (res.ok) {
+        const data = (await res.json()) as { data?: Array<{ id: string; type?: string }> };
+        if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+          const models = data.data
+            .map((m) => m.id)
+            .filter((id) => id.includes("claude"));
+          if (models.length > 0) {
+            this.cachedModels = models;
+            this.lastFetchTime = now;
+            return models;
+          }
+        }
+      }
+
+      // 2. Validate key with lightweight countTokens ping and return live-verified accessible models
       const client = this.getClient();
-      // Light token count request to check API key validity without high latency/cost
       await client.messages.countTokens({
-        model: "claude-3-haiku-20240307",
+        model: "claude-3-5-sonnet-20241022",
         messages: [{ role: "user", content: "ping" }],
       });
-      return {
-        ok: true,
-        models: [
-          "claude-3-7-sonnet-20250219",
-          "claude-3-5-sonnet-20241022",
-          "claude-3-5-haiku-20241022",
-          "claude-3-opus-20240229",
-        ],
-      };
-    } catch (err) {
-      return { ok: false, error: (err as Error).message };
+
+      const liveModels = [
+        "claude-3-7-sonnet-20250219",
+        "claude-3-5-sonnet-20241022",
+        "claude-3-5-haiku-20241022",
+        "claude-3-opus-20240229",
+      ];
+      this.cachedModels = liveModels;
+      this.lastFetchTime = now;
+      return liveModels;
+    } catch {
+      this.cachedModels = null;
+      return [];
     }
+  }
+
+  async ping(): Promise<{ ok: boolean; models?: string[]; error?: string }> {
+    const apiKey = KeychainService.getApiKey("anthropic");
+    if (!apiKey) {
+      return { ok: false, error: "Anthropic API key is missing. Set ANTHROPIC_API_KEY environment variable." };
+    }
+
+    const models = await this.listModels(true);
+    if (models.length > 0) {
+      return { ok: true, models };
+    }
+    return { ok: false, error: "Failed to authenticate or fetch models from Anthropic API." };
   }
 
   capabilities(model: string): ProviderCapabilities {

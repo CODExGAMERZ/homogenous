@@ -20,8 +20,12 @@ export class OpenAIProvider implements InferenceProvider {
     this.baseUrl = baseUrl;
   }
 
+  protected cachedModels: string[] | null = null;
+  protected lastFetchTime = 0;
+
   public resetClient(): void {
-    // OpenAIProvider reads key dynamically per request via getApiKey()
+    this.cachedModels = null;
+    this.lastFetchTime = 0;
   }
 
   protected getApiKey(): string {
@@ -35,24 +39,93 @@ export class OpenAIProvider implements InferenceProvider {
     return key;
   }
 
+  public async listModels(forceRefresh = false): Promise<string[]> {
+    let apiKey: string;
+    try {
+      apiKey = this.getApiKey();
+    } catch {
+      this.cachedModels = null;
+      return [];
+    }
+
+    const now = Date.now();
+    if (!forceRefresh && this.cachedModels && now - this.lastFetchTime < 30000) {
+      return this.cachedModels;
+    }
+
+    try {
+      const res = await fetch(`${this.baseUrl}/models`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!res.ok) {
+        this.cachedModels = null;
+        return [];
+      }
+      const data = (await res.json()) as { data?: Array<{ id: string }> };
+      if (!data.data || !Array.isArray(data.data)) {
+        this.cachedModels = null;
+        return [];
+      }
+
+      // Filter for active chat/reasoning models only
+      const models = data.data
+        .map((m) => m.id)
+        .filter((id) => {
+          const lower = id.toLowerCase();
+          if (
+            lower.includes("embed") ||
+            lower.includes("whisper") ||
+            lower.includes("tts") ||
+            lower.includes("dall-e") ||
+            lower.includes("moderation") ||
+            lower.includes("babbage") ||
+            lower.includes("davinci") ||
+            lower.includes("curie") ||
+            lower.includes("ada") ||
+            lower.includes("realtime") ||
+            lower.includes("audio") ||
+            lower.includes("transcription") ||
+            lower.includes("guard")
+          ) {
+            return false;
+          }
+          return (
+            lower.startsWith("gpt-") ||
+            lower.startsWith("o1") ||
+            lower.startsWith("o3") ||
+            lower.startsWith("chatgpt-") ||
+            lower.includes("instruct") ||
+            lower.includes("chat") ||
+            lower.includes("claude") ||
+            lower.includes("deepseek") ||
+            lower.includes("llama") ||
+            lower.includes("qwen") ||
+            lower.includes("mistral") ||
+            lower.includes("nemotron")
+          );
+        });
+
+      this.cachedModels = models;
+      this.lastFetchTime = now;
+      return models;
+    } catch {
+      this.cachedModels = null;
+      return [];
+    }
+  }
+
   async ping(): Promise<{ ok: boolean; models?: string[]; error?: string }> {
     try {
+      const models = await this.listModels(true);
+      if (models.length > 0) {
+        return { ok: true, models };
+      }
       const apiKey = this.getApiKey();
       const res = await fetch(`${this.baseUrl}/models`, {
         headers: { Authorization: `Bearer ${apiKey}` },
       });
       if (!res.ok) return { ok: false, error: `HTTP ${res.status}: ${res.statusText}` };
-      const data = (await res.json()) as { data?: Array<{ id: string }> };
-      const models = data.data?.map((m) => m.id) || [
-        "gpt-4o",
-        "gpt-4o-mini",
-        "o3-mini",
-        "o1",
-        "o1-mini",
-        "chatgpt-4o-latest",
-        "gpt-4-turbo",
-      ];
-      return { ok: true, models };
+      return { ok: true, models: [] };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }

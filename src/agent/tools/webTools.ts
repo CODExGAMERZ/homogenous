@@ -226,7 +226,7 @@ export class WebFetchTool extends BaseTool {
           signal: controller.signal,
           redirect: "manual",
           headers: {
-            "User-Agent": "Homogenous-CLI/4.1.0",
+            "User-Agent": "Homogenous-CLI/4.2.0",
             Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5",
           },
         });

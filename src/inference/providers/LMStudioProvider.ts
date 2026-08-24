@@ -13,6 +13,14 @@ export class LMStudioProvider extends OpenAIProvider {
     return process.env.LMSTUDIO_API_KEY || "lm-studio";
   }
 
+  public override async listModels(forceRefresh = false): Promise<string[]> {
+    if (!forceRefresh && this.installedModels.length > 0) {
+      return this.installedModels;
+    }
+    const res = await this.ping();
+    return res.ok && res.models ? res.models : [];
+  }
+
   public getInstalledModels(): string[] {
     return this.installedModels;
   }
