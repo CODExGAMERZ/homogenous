@@ -15,6 +15,7 @@ import { AutocompleteEngine, type AutocompleteItem } from "../slash/Autocomplete
 import type { CommandContext, PendingPlan } from "../slash/SlashCommand.js";
 import { getGitBranch } from "../../platform/shell.js";
 import { buildBaseSystemPrompt } from "../../agent/systemPrompt.js";
+import { UserStateService } from "../../platform/UserState.js";
 
 export interface AppProps {
   provider?: InferenceProvider;
@@ -97,11 +98,15 @@ const AppContent: React.FC<AppProps> = ({
     () => new SessionMemory(buildBaseSystemPrompt(workspacePath))
   );
   const [gitBranch, setGitBranch] = useState(initialGitBranch);
-  const [promptHistory, setPromptHistory] = useState<string[]>([]);
+
+  const initialMode = UserStateService.getInstance().getExecutionMode();
+  const [promptHistory, setPromptHistory] = useState<string[]>(() =>
+    UserStateService.getInstance().getPromptHistory()
+  );
 
   const [pendingPlan, setPendingPlan] = useState<PendingPlan | null>(null);
-  const [planModeEnabled, setPlanModeEnabled] = useState(false);
-  const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
+  const [planModeEnabled, setPlanModeEnabled] = useState(initialMode === "plan");
+  const [autoApproveEnabled, setAutoApproveEnabled] = useState(initialMode === "auto");
   const [hasToolError, setHasToolError] = useState(false);
 
   useEffect(() => {
@@ -198,16 +203,30 @@ const AppContent: React.FC<AppProps> = ({
       const commandContext: CommandContext = {
         provider,
         model,
-        setModel: (newM) => setModel(newM),
-        setProvider: (newP) => setProvider(newP),
+        setModel: (newM) => {
+          setModel(newM);
+          UserStateService.getInstance().setLastUsed(provider.id, newM);
+        },
+        setProvider: (newP) => {
+          setProvider(newP);
+          UserStateService.getInstance().setLastUsed(newP.id, model);
+        },
         sessionMemory,
         workspacePath,
         pendingPlan,
         setPendingPlan: (plan) => setPendingPlan(plan),
         planModeEnabled,
-        setPlanModeEnabled: (enabled) => setPlanModeEnabled(enabled),
+        setPlanModeEnabled: (enabled) => {
+          setPlanModeEnabled(enabled);
+          if (enabled) UserStateService.getInstance().setExecutionMode("plan");
+          else UserStateService.getInstance().setExecutionMode("normal");
+        },
         autoApproveEnabled,
-        setAutoApproveEnabled: (enabled) => setAutoApproveEnabled(enabled),
+        setAutoApproveEnabled: (enabled) => {
+          setAutoApproveEnabled(enabled);
+          if (enabled) UserStateService.getInstance().setExecutionMode("auto");
+          else UserStateService.getInstance().setExecutionMode("normal");
+        },
         setFeed: (newFeed) => setFeed(newFeed),
       };
 
@@ -239,20 +258,35 @@ const AppContent: React.FC<AppProps> = ({
       ? trimmed.replace(/^(\/login\s+\S+\s+).+$/i, "$1●●●●●●●●")
       : trimmed;
     setPromptHistory((prev) => [...prev, historyEntry]);
+    UserStateService.getInstance().addPromptToHistory(historyEntry);
 
     const commandContext: CommandContext = {
       provider,
       model,
-      setModel: (newM) => setModel(newM),
-      setProvider: (newP) => setProvider(newP),
+      setModel: (newM) => {
+        setModel(newM);
+        UserStateService.getInstance().setLastUsed(provider.id, newM);
+      },
+      setProvider: (newP) => {
+        setProvider(newP);
+        UserStateService.getInstance().setLastUsed(newP.id, model);
+      },
       sessionMemory,
       workspacePath,
       pendingPlan,
       setPendingPlan: (plan) => setPendingPlan(plan),
       planModeEnabled,
-      setPlanModeEnabled: (enabled) => setPlanModeEnabled(enabled),
+      setPlanModeEnabled: (enabled) => {
+        setPlanModeEnabled(enabled);
+        if (enabled) UserStateService.getInstance().setExecutionMode("plan");
+        else UserStateService.getInstance().setExecutionMode("normal");
+      },
       autoApproveEnabled,
-      setAutoApproveEnabled: (enabled) => setAutoApproveEnabled(enabled),
+      setAutoApproveEnabled: (enabled) => {
+        setAutoApproveEnabled(enabled);
+        if (enabled) UserStateService.getInstance().setExecutionMode("auto");
+        else UserStateService.getInstance().setExecutionMode("normal");
+      },
     };
 
     if (trimmed.startsWith("/")) {

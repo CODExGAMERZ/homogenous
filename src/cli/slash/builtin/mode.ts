@@ -1,5 +1,6 @@
 import type { SlashCommand } from "../SlashCommand.js";
 import { PlanningMode } from "../../../agent/PlanningMode.js";
+import { UserStateService } from "../../../platform/UserState.js";
 
 export const modeCommands: SlashCommand[] = [
   {
@@ -11,6 +12,7 @@ export const modeCommands: SlashCommand[] = [
       if (args.length === 0) {
         const nextState = !ctx.planModeEnabled;
         ctx.setPlanModeEnabled?.(nextState);
+        UserStateService.getInstance().setExecutionMode(nextState ? "plan" : (ctx.autoApproveEnabled ? "auto" : "normal"));
         return {
           output: `✦ Plan Mode is now ${
             nextState ? "ENABLED (All prompts will generate dry-run proposals requiring /apply)" : "DISABLED"
@@ -21,10 +23,12 @@ export const modeCommands: SlashCommand[] = [
       const arg0 = args[0].toLowerCase();
       if (arg0 === "on") {
         ctx.setPlanModeEnabled?.(true);
+        UserStateService.getInstance().setExecutionMode("plan");
         return { output: "✓ Plan Mode ENABLED. All subsequent prompts will generate dry-run implementation proposals." };
       }
       if (arg0 === "off") {
         ctx.setPlanModeEnabled?.(false);
+        UserStateService.getInstance().setExecutionMode(ctx.autoApproveEnabled ? "auto" : "normal");
         return { output: "✓ Plan Mode DISABLED. Prompts will execute directly." };
       }
 
@@ -49,6 +53,7 @@ export const modeCommands: SlashCommand[] = [
       }
 
       ctx.setAutoApproveEnabled?.(newState);
+      UserStateService.getInstance().setExecutionMode(ctx.planModeEnabled ? "plan" : (newState ? "auto" : "normal"));
 
       return {
         output: `✦ Auto-Approve Mode: ${newState ? "ENABLED" : "DISABLED"}\n` +
@@ -80,14 +85,17 @@ export const modeCommands: SlashCommand[] = [
       if (targetMode === "auto") {
         ctx.setPlanModeEnabled?.(false);
         ctx.setAutoApproveEnabled?.(true);
+        UserStateService.getInstance().setExecutionMode("auto");
         return { output: "✓ Switched mode to AUTO-APPROVE. Safe allowlisted commands will execute automatically." };
       } else if (targetMode === "plan") {
         ctx.setPlanModeEnabled?.(true);
         ctx.setAutoApproveEnabled?.(false);
+        UserStateService.getInstance().setExecutionMode("plan");
         return { output: "✓ Switched mode to PLANNING. Prompts will generate dry-run implementation plans requiring /apply." };
       } else if (targetMode === "normal") {
         ctx.setPlanModeEnabled?.(false);
         ctx.setAutoApproveEnabled?.(false);
+        UserStateService.getInstance().setExecutionMode("normal");
         return { output: "✓ Switched mode to NORMAL. All shell commands require interactive user approval." };
       }
 

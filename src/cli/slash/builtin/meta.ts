@@ -5,6 +5,7 @@ import { ConfigResolver } from "../../../config/ConfigResolver.js";
 import { KeychainService, type KeyProvider } from "../../../inference/keychain.js";
 import { ProviderRegistry } from "../../../inference/ProviderRegistry.js";
 import { resolvePath, getProjectMemoryDir } from "../../../platform/paths.js";
+import { UserStateService } from "../../../platform/UserState.js";
 
 export const metaCommands: SlashCommand[] = [
   {
@@ -88,6 +89,9 @@ export const metaCommands: SlashCommand[] = [
         ctx.setModel(nextModel);
       }
 
+      // Persist active provider and model to UserState so it's remembered on next session
+      UserStateService.getInstance().setLastUsed(providerStr, nextModel);
+
       return {
         output: `✓ Successfully saved and registered API key for '${providerStr}'!${pingMsg}\n✦ Switched active provider to ${providerStr} (Model: ${nextModel})\nKey is permanently stored until you unregister it via '/logout ${providerStr}'.`,
       };
@@ -97,13 +101,47 @@ export const metaCommands: SlashCommand[] = [
     name: "logout",
     description: "Unregister and permanently delete a stored provider API key",
     category: "config",
-    usage: "/logout [provider] or /unregister [provider]",
+    usage: "/logout [provider|all] or /unregister [provider|all]",
     execute: async (args, ctx) => {
-      const providerStr = args[0]?.toLowerCase() as KeyProvider;
       const validProviders = ["anthropic", "openai", "groq", "nvidia", "deepseek", "openrouter", "mistral", "together"];
+      const configured = KeychainService.listConfiguredProviders();
 
-      if (!providerStr || !validProviders.includes(providerStr)) {
-        return { output: `Usage: /logout [${validProviders.join("|")}]` };
+      if (args.length === 0) {
+        if (configured.length === 0) {
+          return { output: "No API keys are currently registered in your vault." };
+        }
+        return {
+          output: `✦ Currently registered provider keys in your vault:\n${configured
+            .map((p) => `  • ${p.padEnd(12)} (saved)`)
+            .join("\n")}\n\nTo remove a key, type: /logout <provider>  OR  /logout all`,
+        };
+      }
+
+      const providerArg = args[0].toLowerCase();
+
+      if (providerArg === "all") {
+        for (const p of configured) {
+          await KeychainService.deleteApiKey(p as KeyProvider);
+        }
+        ConfigResolver.getInstance().loadConfig();
+        const registry = ProviderRegistry.getInstance();
+        registry.invalidateModelCache();
+        try {
+          const { AutocompleteEngine } = await import("../AutocompleteEngine.js");
+          AutocompleteEngine.getInstance().invalidateCache();
+        } catch {
+          // Ignore
+        }
+        const fallbackRes = await registry.routeFor("complexEdit");
+        ctx.setProvider?.(fallbackRes.provider);
+        ctx.setModel?.(fallbackRes.model);
+        UserStateService.getInstance().setLastUsed(fallbackRes.provider.id, fallbackRes.model);
+        return { output: "✓ Successfully unregistered and removed all stored API keys from your vault." };
+      }
+
+      const providerStr = providerArg as KeyProvider;
+      if (!validProviders.includes(providerStr)) {
+        return { output: `Usage: /logout [${validProviders.join("|")}|all]` };
       }
 
       await KeychainService.deleteApiKey(providerStr);
@@ -124,6 +162,7 @@ export const metaCommands: SlashCommand[] = [
         const fallbackRes = await registry.routeFor("complexEdit");
         ctx.setProvider?.(fallbackRes.provider);
         ctx.setModel?.(fallbackRes.model);
+        UserStateService.getInstance().setLastUsed(fallbackRes.provider.id, fallbackRes.model);
       }
 
       return {
@@ -135,38 +174,13 @@ export const metaCommands: SlashCommand[] = [
     name: "unregister",
     description: "Alias for /logout: unregister and permanently delete a stored provider API key",
     category: "config",
-    usage: "/unregister [provider]",
+    usage: "/unregister [provider|all]",
     execute: async (args, ctx) => {
-      const providerStr = args[0]?.toLowerCase() as KeyProvider;
-      const validProviders = ["anthropic", "openai", "groq", "nvidia", "deepseek", "openrouter", "mistral", "together"];
-
-      if (!providerStr || !validProviders.includes(providerStr)) {
-        return { output: `Usage: /unregister [${validProviders.join("|")}]` };
+      const metaLogout = metaCommands.find((c) => c.name === "logout");
+      if (metaLogout) {
+        return metaLogout.execute(args, ctx);
       }
-
-      await KeychainService.deleteApiKey(providerStr);
-      ConfigResolver.getInstance().loadConfig();
-
-      const registry = ProviderRegistry.getInstance();
-      registry.invalidateModelCache();
-
-      try {
-        const { AutocompleteEngine } = await import("../AutocompleteEngine.js");
-        AutocompleteEngine.getInstance().invalidateCache();
-      } catch {
-        // Ignore
-      }
-
-      // If active session was using this provider, auto-route to next available provider
-      if (ctx && ctx.provider && ctx.provider.id === providerStr) {
-        const fallbackRes = await registry.routeFor("complexEdit");
-        ctx.setProvider?.(fallbackRes.provider);
-        ctx.setModel?.(fallbackRes.model);
-      }
-
-      return {
-        output: `✓ Successfully unregistered and removed API key for '${providerStr}'.`,
-      };
+      return { output: "Command failed." };
     },
   },
   {

@@ -4,6 +4,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { ConfigResolver } from "../config/ConfigResolver.js";
 import { ProviderRegistry } from "./ProviderRegistry.js";
+import { getGlobalConfigDir, resolvePath } from "../platform/paths.js";
 
 export type KeyProvider =
   | "anthropic"
@@ -16,7 +17,18 @@ export type KeyProvider =
   | "together";
 
 function getMachineEncryptionKey(): Buffer {
-  const seed = `${os.hostname()}-${os.userInfo().username}-${os.homedir()}-homogenous-vault-key-v1`;
+  let username = "";
+  try {
+    username = os.userInfo()?.username || "";
+  } catch {
+    username = "";
+  }
+  if (!username) {
+    username = process.env.USERNAME || process.env.USER || "default-user";
+  }
+  const home = os.homedir();
+  const hostname = os.hostname();
+  const seed = `${hostname}-${username}-${home}-homogenous-vault-key-v1`;
   return crypto.createHash("sha256").update(seed).digest();
 }
 
@@ -54,11 +66,15 @@ function decryptSecret(cipherText: string): string {
 }
 
 function getKeysFilePath(): string {
-  const dir = path.join(os.homedir(), ".homogenous");
+  const dir = getGlobalConfigDir();
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch {
+      // Non-fatal
+    }
   }
-  return path.join(dir, "keys.json");
+  return resolvePath(dir, "keys.json");
 }
 
 let cachedStoredKeys: Record<string, string> | null = null;
@@ -74,7 +90,10 @@ function loadStoredKeys(forceReload = false): Record<string, string> {
       const decrypted: Record<string, string> = {};
       for (const [k, v] of Object.entries(raw)) {
         if (typeof v === "string") {
-          decrypted[k] = decryptSecret(v);
+          const dec = decryptSecret(v);
+          if (dec) {
+            decrypted[k] = dec;
+          }
         }
       }
       cachedStoredKeys = decrypted;
@@ -93,7 +112,11 @@ function saveStoredKeys(keys: Record<string, string>): void {
   const filePath = getKeysFilePath();
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch {
+      // Non-fatal
+    }
   }
   const encryptedPayload: Record<string, string> = {};
   for (const [k, v] of Object.entries(keys)) {
@@ -246,5 +269,29 @@ export class KeychainService {
     if (registryProvider && "resetClient" in registryProvider && typeof (registryProvider as any).resetClient === "function") {
       (registryProvider as any).resetClient();
     }
+  }
+
+  /**
+   * Returns all currently stored API keys from the secure keys vault file.
+   */
+  public static getStoredKeyMap(): Record<string, string> {
+    return { ...loadStoredKeys() };
+  }
+
+  /**
+   * Lists all cloud providers that currently have configured API keys.
+   */
+  public static listConfiguredProviders(): KeyProvider[] {
+    const cloudProviders: KeyProvider[] = [
+      "anthropic",
+      "openai",
+      "groq",
+      "nvidia",
+      "deepseek",
+      "openrouter",
+      "mistral",
+      "together",
+    ];
+    return cloudProviders.filter((p) => !!this.getApiKey(p));
   }
 }

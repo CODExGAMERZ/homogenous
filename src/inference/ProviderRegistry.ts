@@ -36,6 +36,7 @@ export interface ProviderResolution {
 
 import { KeychainService, type KeyProvider } from "./keychain.js";
 import { parseModelParams } from "./modelParams.js";
+import { UserStateService } from "../platform/UserState.js";
 
 export interface ActiveModelItem {
   id: string;
@@ -243,6 +244,7 @@ export class ProviderRegistry {
    * Resolves the appropriate provider and model for a given task type,
    * enforcing strict cost-tier isolation for local/free triage tasks,
    * dynamically picking installed models (e.g. qwen2.5-coder:1.5b),
+   * remembering user's last chosen active model,
    * and falling back to Demo Mode if no API keys or local servers are detected.
    */
   public async routeFor(taskType: TaskType): Promise<ProviderResolution> {
@@ -259,6 +261,32 @@ export class ProviderRegistry {
     }
 
     const isFreeTask = FREE_TIER_TASKS.includes(taskType);
+
+    // If this is a primary execution task and user previously selected a provider/model, prioritize it
+    if (!isFreeTask && (!configuredTarget || preferredProviderId === "anthropic")) {
+      try {
+        const lastUsed = UserStateService.getInstance().getLastUsed();
+        if (lastUsed.provider && lastUsed.model) {
+          const lastProvider = this.providers.get(lastUsed.provider);
+          if (lastProvider) {
+            const isLocal = lastUsed.provider === "ollama" || lastUsed.provider === "lmstudio" || lastUsed.provider === "mock";
+            const hasKey = isLocal || !!KeychainService.getApiKey(lastUsed.provider as KeyProvider);
+            if (hasKey) {
+              const pingRes = await lastProvider.ping();
+              if (pingRes.ok) {
+                return {
+                  provider: lastProvider,
+                  model: lastUsed.model,
+                  isFreeTier: isFreeTask || lastProvider.capabilities(lastUsed.model).isLocal,
+                };
+              }
+            }
+          }
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
 
     // Try preferred primary provider first if key or server exists
     const primaryProvider = this.providers.get(preferredProviderId);

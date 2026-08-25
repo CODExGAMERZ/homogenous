@@ -28,15 +28,19 @@ export class LMStudioProvider extends OpenAIProvider {
   override async ping(): Promise<{ ok: boolean; models?: string[]; error?: string }> {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2000);
+      const timeout = setTimeout(() => controller.abort(), 350);
 
-      let res = await fetch("http://127.0.0.1:1234/v1/models", { signal: controller.signal }).catch(() => null);
-      if (!res || !res.ok) {
-        res = await fetch("http://localhost:1234/v1/models", { signal: controller.signal }).catch(() => null);
-      }
+      const urls = [
+        "http://127.0.0.1:1234/v1/models",
+        "http://localhost:1234/v1/models",
+      ];
+      const responses = await Promise.all(
+        urls.map((u) => fetch(u, { signal: controller.signal }).catch(() => null))
+      );
       clearTimeout(timeout);
 
-      if (!res || !res.ok) return { ok: false, error: res ? `HTTP ${res.status}` : "Connection refused" };
+      const res = responses.find((r) => r && r.ok);
+      if (!res) return { ok: false, error: "Connection refused" };
       const data = (await res.json()) as { data?: Array<{ id: string }> };
       const models = data.data?.map((m) => m.id) || [];
       this.installedModels = models;

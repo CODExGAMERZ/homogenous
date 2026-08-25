@@ -3,6 +3,7 @@ import { ProviderRegistry, type ActiveModelItem } from "../../../inference/Provi
 import { ConfigResolver } from "../../../config/ConfigResolver.js";
 import { KeychainService, type KeyProvider } from "../../../inference/keychain.js";
 import { parseModelParams } from "../../../inference/modelParams.js";
+import { UserStateService } from "../../../platform/UserState.js";
 
 export { parseModelParams };
 
@@ -111,10 +112,12 @@ export const modelCommands: SlashCommand[] = [
       if (newP) {
         if (ctx.setProvider) ctx.setProvider(newP);
         ctx.setModel(targetItem.modelName);
+        UserStateService.getInstance().setLastUsed(targetItem.providerId, targetItem.modelName);
         return { output: `✓ Switched active model to ${targetItem.providerId}/${targetItem.modelName}` };
       }
 
       ctx.setModel(targetItem.modelName);
+      UserStateService.getInstance().setLastUsed(ctx.provider.id, targetItem.modelName);
       return { output: `Updated model to ${targetItem.modelName}` };
     },
   },
@@ -147,6 +150,7 @@ export const modelCommands: SlashCommand[] = [
         const p = registry.getProvider(target);
         if (!p) return { output: `Provider '${target}' not found.` };
         ctx.setProvider?.(p);
+        UserStateService.getInstance().setLastUsed(target, ctx.model);
         return { output: `Switched active provider to '${target}'` };
       }
 

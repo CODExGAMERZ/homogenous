@@ -77,6 +77,8 @@ test("Security Leak Prevention: scrubSensitiveTokens redacts registered API keys
   assert.ok(!scrubbed.includes("super_secret_password_123"));
   assert.ok(scrubbed.includes("[REDACTED"));
   assert.ok(scrubbed.includes("[REDACTED_PASSWORD]"));
+
+  await KeychainService.deleteApiKey("groq");
 });
 
 test("Security Leak Prevention: PersistentMemory redacts sensitive tokens from facts", () => {

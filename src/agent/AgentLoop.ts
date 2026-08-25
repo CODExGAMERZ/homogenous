@@ -222,12 +222,9 @@ export class AgentLoop {
         }
 
         if (onTextDelta && fullText) {
-          // NOTE: Pacing timer fallback for turns provides UI-only word-by-word chunking animation
-          // for visual output consistency across all providers. This is a frontend streaming UI effect.
           const words = fullText.match(/\S+|\s+/g) || [fullText];
           for (const word of words) {
             onTextDelta(word);
-            await new Promise((resolve) => setTimeout(resolve, 18));
           }
         }
 

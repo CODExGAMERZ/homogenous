@@ -49,18 +49,21 @@ export class OllamaProvider implements InferenceProvider {
   async ping(): Promise<{ ok: boolean; models?: string[]; error?: string }> {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2000);
+      const timeout = setTimeout(() => controller.abort(), 350);
 
-      let res = await fetch(`${this.host}/api/tags`, { signal: controller.signal }).catch(() => null);
-      if (!res || !res.ok) {
-        res = await fetch("http://127.0.0.1:11434/api/tags", { signal: controller.signal }).catch(() => null);
-      }
-      if (!res || !res.ok) {
-        res = await fetch("http://localhost:11434/api/tags", { signal: controller.signal }).catch(() => null);
-      }
+      const urls = [
+        `${this.host}/api/tags`,
+        "http://127.0.0.1:11434/api/tags",
+        "http://localhost:11434/api/tags",
+      ];
+      // Parallel probe to reduce latency
+      const responses = await Promise.all(
+        urls.map((u) => fetch(u, { signal: controller.signal }).catch(() => null))
+      );
       clearTimeout(timeout);
 
-      if (!res || !res.ok) return { ok: false, error: res ? `HTTP ${res.status}` : "Connection refused" };
+      const res = responses.find((r) => r && r.ok);
+      if (!res) return { ok: false, error: "Connection refused" };
       const data = (await res.json()) as { models?: Array<{ name: string }> };
       const models = data.models?.map((m) => m.name) || [];
       this.installedModels = models;

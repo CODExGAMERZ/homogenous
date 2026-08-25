@@ -8,6 +8,7 @@ import { execCommand } from "../platform/shell.js";
 import { HOMOGENOUS_BANNER } from "./ui/LogoBanner.js";
 
 import { McpClientManager } from "../mcp/McpClientManager.js";
+import { UserStateService } from "../platform/UserState.js";
 
 export interface ReplOptions {
   model?: string;
@@ -60,6 +61,7 @@ export async function runRepl(options: ReplOptions = {}): Promise<void> {
       provider = res.provider;
       model = options.model || res.model;
     }
+    UserStateService.getInstance().setLastUsed(provider.id, model);
   } catch (err) {
     console.error(chalk.red(`\n${(err as Error).message}\n`));
     process.exit(1);

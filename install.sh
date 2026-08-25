@@ -4,39 +4,35 @@
 
 set -e
 
-echo -e "\n\033[1;36m✦ Installing Homogenous CLI v4.2.0 (Local-First Coding Assistant)...\033[0m"
+echo -e "\n\033[1;36m✦ Installing Homogenous CLI v4.2.5 (Local-First Coding Assistant)...\033[0m"
 
 # 1. Verify Node.js
 if ! command -v node &> /dev/null; then
-    echo -e "\033[1;31m✗ Error: Node.js is required but not found.\033[0m"
-    echo -e "\033[1;33mPlease install Node.js (v20 or higher) from https://nodejs.org/\033[0m"
+    echo -e "\033[1;31m✗ Error: Node.js (v18+) is required to install Homogenous CLI.\033[0m"
     exit 1
 fi
 
-NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-if [ -n "$NODE_VERSION" ] && [ "$NODE_VERSION" -lt 18 ]; then
-    echo -e "\033[1;33m⚠ Warning: Node.js version $(node -v) detected. Node.js v18+ is required (v20+ recommended).\033[0m"
-fi
-
-# 2. Verify npm
 if ! command -v npm &> /dev/null; then
-    echo -e "\033[1;31m✗ Error: npm is required.\033[0m"
+    echo -e "\033[0;31mError: npm is required to install Homogenous CLI.\033[0m"
     exit 1
 fi
 
-echo -e "\033[1;32m✓ Prerequisites verified.\033[0m"
-echo -e "\033[1;36m✦ Installing homogenous CLI...\033[0m"
+# Detect installation type
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [ -f "package.json" ]; then
-    echo -e "\033[1;33mBuilding Homogenous CLI from local repository...\033[0m"
-    npm install
+if [ -f "$SCRIPT_DIR/package.json" ]; then
+    echo -e "Installing globally from local repository..."
+    cd "$SCRIPT_DIR"
     npm run build
-    npm link
+    npm install -g .
 else
-    echo -e "\033[1;33mInstalling Homogenous CLI globally via npm...\033[0m"
+    echo -e "Installing latest release from npm..."
     npm install -g @codexgamerz/homogenous@latest
 fi
 
-echo -e "\n\033[1;32m✓ Homogenous CLI v4.2.0 installed successfully!\033[0m"
-echo -e "\n\033[1;36mTo start coding with Homogenous, run:\033[0m"
-echo -e "  \033[1;37mhomogenous\033[0m\n"
+# Verify installation
+if command -v homogenous &> /dev/null; then
+    echo -e "\n\033[1;32m✓ Homogenous CLI v4.2.5 installed successfully!\033[0m"
+    echo -e "\n\033[1;36mTo start coding with Homogenous, run:\033[0m"
+    echo -e "  \033[1;37mhomogenous\033[0m\n"
+fi

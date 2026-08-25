@@ -2,6 +2,7 @@ import fs from "node:fs";
 import yaml from "yaml";
 import { ToolRcSchema, type ToolRcConfig } from "./schema.js";
 import { getGlobalConfigFile, getProjectConfigFile } from "../platform/paths.js";
+import { KeychainService } from "../inference/keychain.js";
 
 export class ConfigResolver {
   private static instance: ConfigResolver;
@@ -23,7 +24,7 @@ export class ConfigResolver {
   }
 
   /**
-   * Reloads configuration merging Global < Project < Environment Variables < CLI Overrides.
+   * Reloads configuration merging Global < Project < Stored Vault Keys < Environment Variables < CLI Overrides.
    */
   public loadConfig(cliOverrides: Partial<ToolRcConfig> = {}): ToolRcConfig {
     let mergedRaw: Record<string, unknown> = {};
@@ -56,7 +57,15 @@ export class ConfigResolver {
       }
     }
 
-    // 3. Extract Environment Variable Keys
+    // 3. Extract Stored Keys from Secure Keychain Vault
+    let storedVaultKeys: Record<string, string> = {};
+    try {
+      storedVaultKeys = KeychainService.getStoredKeyMap();
+    } catch {
+      // Non-fatal fallback
+    }
+
+    // 4. Extract Environment Variable Keys
     const envKeys: Record<string, string> = {};
     if (process.env.ANTHROPIC_API_KEY) envKeys.anthropic = process.env.ANTHROPIC_API_KEY;
     if (process.env.OPENAI_API_KEY) envKeys.openai = process.env.OPENAI_API_KEY;
@@ -68,16 +77,16 @@ export class ConfigResolver {
     if (process.env.TOGETHER_API_KEY) envKeys.together = process.env.TOGETHER_API_KEY;
 
     const existingApiKeys = (mergedRaw.apiKeys as Record<string, string>) || {};
-    mergedRaw.apiKeys = { ...existingApiKeys, ...envKeys };
+    mergedRaw.apiKeys = { ...existingApiKeys, ...storedVaultKeys, ...envKeys };
 
-    // 4. Merge CLI Overrides
+    // 5. Merge CLI Overrides
     mergedRaw = { ...mergedRaw, ...cliOverrides };
 
-    // 5. Validate with Zod
+    // 6. Validate with Zod
     const result = ToolRcSchema.safeParse(mergedRaw);
     if (!result.success) {
       console.warn("Invalid config detected, falling back to defaults:", result.error.format());
-      this.config = ToolRcSchema.parse({ apiKeys: envKeys });
+      this.config = ToolRcSchema.parse({ apiKeys: { ...storedVaultKeys, ...envKeys } });
     } else {
       this.config = result.data;
     }

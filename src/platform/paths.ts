@@ -99,6 +99,9 @@ export function resolveWorkspacePath(
  * System paths for Homogenous global configuration and memory.
  */
 export function getGlobalConfigDir(): string {
+  if (process.env.HOMOGENOUS_HOME) {
+    return resolvePath(process.env.HOMOGENOUS_HOME, ".homogenous");
+  }
   return resolvePath(os.homedir(), ".homogenous");
 }
 
