@@ -99,14 +99,13 @@ const AppContent: React.FC<AppProps> = ({
   );
   const [gitBranch, setGitBranch] = useState(initialGitBranch);
 
-  const initialMode = UserStateService.getInstance().getExecutionMode();
   const [promptHistory, setPromptHistory] = useState<string[]>(() =>
     UserStateService.getInstance().getPromptHistory()
   );
 
   const [pendingPlan, setPendingPlan] = useState<PendingPlan | null>(null);
-  const [planModeEnabled, setPlanModeEnabled] = useState(initialMode === "plan");
-  const [autoApproveEnabled, setAutoApproveEnabled] = useState(initialMode === "auto");
+  const [planModeEnabled, setPlanModeEnabled] = useState(false);
+  const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
   const [hasToolError, setHasToolError] = useState(false);
 
   useEffect(() => {
