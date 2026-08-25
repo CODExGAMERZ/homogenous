@@ -3,7 +3,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-Write-Host "`n✦ Installing Homogenous CLI v4.2.6 (Local-First Coding Assistant)..." -ForegroundColor Cyan
+Write-Host "`n✦ Installing Homogenous CLI v4.2.7 (Local-First Coding Assistant)..." -ForegroundColor Cyan
 
 # 1. Check Node.js
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
@@ -36,6 +36,6 @@ if (Test-Path (Join-Path $scriptDir "package.json")) {
     }
 }
 
-Write-Host "`n✓ Homogenous CLI v4.2.6 installed successfully!" -ForegroundColor Green
+Write-Host "`n✓ Homogenous CLI v4.2.7 installed successfully!" -ForegroundColor Green
 Write-Host "`nTo get started, simply type:" -ForegroundColor Cyan
 Write-Host "  homogenous`n" -ForegroundColor White

@@ -1,6 +1,6 @@
 {
   "name": "@codexgamerz/homogenous",
-  "version": "4.2.6",
+  "version": "4.2.7",
   "description": "Enterprise-grade local-first CLI coding assistant powered by multi-provider LLM inference, dynamic skills, and MCP tools",
   "type": "module",
   "main": "./dist/src/index.js",
