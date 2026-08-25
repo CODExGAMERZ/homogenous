@@ -225,6 +225,7 @@ export class AgentLoop {
           const words = fullText.match(/\S+|\s+/g) || [fullText];
           for (const word of words) {
             onTextDelta(word);
+            await new Promise((resolve) => setTimeout(resolve, 14));
           }
         }
 

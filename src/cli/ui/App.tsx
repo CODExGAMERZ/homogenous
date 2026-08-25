@@ -373,13 +373,11 @@ const AppContent: React.FC<AppProps> = ({
           },
         });
 
-        let isFirstChunk = true;
         let accumulated = "";
-        let flushedLength = 0;
         let lastRenderTime = 0;
         let renderTimer: NodeJS.Timeout | null = null;
 
-        // 60 FPS frame rate throttler (~16ms)
+        // Smooth frame rate throttler (~16ms)
         const updateStreamingUI = (force = false) => {
           const now = Date.now();
           if (!force && now - lastRenderTime < 16) {
@@ -397,29 +395,7 @@ const AppContent: React.FC<AppProps> = ({
             renderTimer = null;
           }
           lastRenderTime = now;
-
-          const unflushed = accumulated.slice(flushedLength);
-          const breakIdx = unflushed.lastIndexOf("\n\n");
-
-          if (breakIdx !== -1) {
-            const chunkToFlush = unflushed.slice(0, breakIdx + 2);
-            flushedLength += chunkToFlush.length;
-            const isFirst = isFirstChunk;
-            isFirstChunk = false;
-
-            setFeed((prev) => [
-              ...prev,
-              {
-                id: `assistant-chunk-${Date.now()}-${Math.random()}`,
-                type: "assistant",
-                text: chunkToFlush,
-                isChunk: !isFirst,
-              },
-            ]);
-            setStreamingText(accumulated.slice(flushedLength));
-          } else {
-            setStreamingText(unflushed);
-          }
+          setStreamingText(accumulated);
         };
 
         const answer = await agent.run(sessionMemory.getMessages(), (delta) => {
@@ -432,17 +408,14 @@ const AppContent: React.FC<AppProps> = ({
           renderTimer = null;
         }
 
-        const remainingUnflushed = answer.slice(flushedLength);
         setStreamingText("");
-        if (remainingUnflushed.trim()) {
-          const isFirst = isFirstChunk;
+        if (answer.trim()) {
           setFeed((prev) => [
             ...prev,
             {
               id: `assistant-${Date.now()}`,
               type: "assistant",
-              text: remainingUnflushed,
-              isChunk: !isFirst,
+              text: answer,
             },
           ]);
         }
