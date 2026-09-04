@@ -124,7 +124,6 @@ test("Slash /login and /logout commands manage credentials and UserState correct
 });
 
 test("Cleanup test environment", () => {
-  delete process.env.HOMOGENOUS_HOME;
   try {
     fs.rmSync(testTmpDir, { recursive: true, force: true });
   } catch {

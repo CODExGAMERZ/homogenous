@@ -3,6 +3,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { BaseTool, type ToolResult } from "../agent/tools/BaseTool.js";
 import { ToolOutputTruncator } from "../token-budget/ToolOutputTruncator.js";
 import { McpConfigResolver } from "./config.js";
+import { ResourceCache } from "./ResourceCache.js";
 
 export class McpToolWrapper extends BaseTool {
   readonly name: string;
@@ -104,7 +105,7 @@ export class McpClientManager {
         });
 
         const client = new Client(
-          { name: "homogenous-cli", version: "4.2.7" },
+          { name: "homogenous-cli", version: "4.3.0" },
           { capabilities: {} }
         );
 
@@ -157,6 +158,87 @@ export class McpClientManager {
   public async reloadServers(projectRoot: string = process.cwd()): Promise<BaseTool[]> {
     await this.closeAll();
     return this.initializeServers(projectRoot);
+  }
+
+  public getActiveServerNames(): string[] {
+    return Array.from(this.activeClients.keys());
+  }
+
+  public async listPrompts(): Promise<{ serverName: string; name: string; description?: string; arguments?: any[] }[]> {
+    const allPrompts: { serverName: string; name: string; description?: string; arguments?: any[] }[] = [];
+    for (const [serverName, client] of this.activeClients.entries()) {
+      try {
+        const result = await client.listPrompts();
+        if (result && Array.isArray(result.prompts)) {
+          for (const p of result.prompts) {
+            allPrompts.push({
+              serverName,
+              name: p.name,
+              description: p.description,
+              arguments: (p as any).arguments,
+            });
+          }
+        }
+      } catch {
+        // Server may not support prompts capability; safely ignore
+      }
+    }
+    return allPrompts;
+  }
+
+  public async getPrompt(
+    serverName: string,
+    promptName: string,
+    args?: Record<string, string>
+  ): Promise<any> {
+    const client = this.activeClients.get(serverName);
+    if (!client) {
+      throw new Error(`MCP server '${serverName}' is not connected.`);
+    }
+    return await client.getPrompt({
+      name: promptName,
+      arguments: args,
+    });
+  }
+
+  public async listResources(): Promise<{ serverName: string; uri: string; name: string; mimeType?: string; description?: string }[]> {
+    const allResources: { serverName: string; uri: string; name: string; mimeType?: string; description?: string }[] = [];
+    for (const [serverName, client] of this.activeClients.entries()) {
+      try {
+        const result = await client.listResources();
+        if (result && Array.isArray(result.resources)) {
+          for (const r of result.resources) {
+            allResources.push({
+              serverName,
+              uri: r.uri,
+              name: r.name,
+              mimeType: r.mimeType,
+              description: r.description,
+            });
+          }
+        }
+      } catch {
+        // Server may not support resources capability; safely ignore
+      }
+    }
+    return allResources;
+  }
+
+  public async readResource(serverName: string, uri: string): Promise<string> {
+    const cached = ResourceCache.get(uri);
+    if (cached) return cached;
+
+    const client = this.activeClients.get(serverName);
+    if (!client) {
+      throw new Error(`MCP server '${serverName}' is not connected.`);
+    }
+
+    const res = await client.readResource({ uri });
+    const content = (res.contents || [])
+      .map((c: any) => (c.text !== undefined ? c.text : (c.blob || "")))
+      .join("\n");
+
+    return ResourceCache.set(uri, content);
   }
 
   public async closeAll(): Promise<void> {

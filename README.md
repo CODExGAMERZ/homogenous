@@ -1,4 +1,4 @@
-# ✦ HOMOGENOUS (v4.2.7)
+# ✦ HOMOGENOUS (v4.3.0)
 
 ### The Enterprise-Grade, Local-First, Zero-Overhead Agentic CLI Coding Assistant
 
@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/LICENSE-MIT-39FF14?style=for-the-badge)](LICENSE)
 [![TypeScript 5.0+](https://img.shields.io/badge/TYPESCRIPT-5.0+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js 20+](https://img.shields.io/badge/NODE.JS-20+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Tests: 102 Passed](https://img.shields.io/badge/TESTS-102%20PASSED-39FF14?style=for-the-badge)](test/)
+[![Tests: 116 Passed](https://img.shields.io/badge/TESTS-116%20PASSED-39FF14?style=for-the-badge)](test/)
 [![Security: Zero-Trust Sandbox](https://img.shields.io/badge/SECURITY-ZERO--TRUST%20SANDBOX-FF007F?style=for-the-badge)](https://github.com/CODExGAMERZ/homogenous)
 
 ```text
@@ -19,7 +19,7 @@
                         ✦ LOCAL-FIRST AGENTIC CODING ASSISTANT ✦
 ```
 
-**Homogenous** is an enterprise-grade, local-first, zero-overhead agentic CLI coding assistant built from the ground up with TypeScript, Node.js, and React Ink. Designed for privacy-conscious developers and terminal power users, Homogenous gives you complete control over your AI backends — unifying offline local inference engines (**Ollama**, **LM Studio**) with 9 frontier cloud providers, Model Context Protocol (MCP) tool integrations, dynamic skill extensions, persistent project memory, live token cost accounting, silky-smooth 60 FPS streaming, and zero-trust security sandboxing.
+**Homogenous** is an enterprise-grade, local-first, zero-overhead agentic CLI coding assistant built from the ground up with TypeScript, Node.js, and React Ink. Designed for privacy-conscious developers and terminal power users, Homogenous gives you complete control over your AI backends — unifying offline local inference engines (**Ollama**, **LM Studio**) with 9 frontier cloud providers, Model Context Protocol (MCP) tool integrations, sub-agent delegation, dynamic skill extensions, persistent project memory, live token cost accounting, silky-smooth 60 FPS streaming, and zero-trust security sandboxing.
 
 ---
 
@@ -29,32 +29,35 @@
 2. [🏗️ End-to-End System Architecture](#️-end-to-end-system-architecture)
 3. [🛡️ Enterprise Zero-Leak Security Vault](#️-enterprise-zero-leak-security-vault)
 4. [🧠 11 Multi-Provider Inference Engines](#-11-multi-provider-inference-engines)
-5. [🛠️ 10 Autonomous Core Tools + MCP](#️-10-autonomous-core-tools--mcp)
-6. [🔄 Dual Execution & Interactive Plan Modes](#-dual-execution--interactive-plan-modes)
-7. [⚡ Reactive 60 FPS Terminal UI & Ergonomics](#-reactive-60-fps-terminal-ui--ergonomics)
-8. [💾 Persistent Memory & Dynamic Skills](#-persistent-memory--dynamic-skills)
-9. [💰 Budgeting, Cost Ledger & Token Compaction](#-budgeting-cost-ledger--token-compaction)
-10. [📦 Installation & Setup Guide](#-installation--setup-guide)
-11. [🚀 Quickstart & Workflow Walkthrough](#-quickstart--workflow-walkthrough)
-12. [⌨️ Keyboard Shortcuts Reference](#️-keyboard-shortcuts-reference)
-13. [📜 Complete Slash Commands Manual](#-complete-slash-commands-manual)
-14. [⚙️ Configuration Reference (`.toolrc.yaml` & `.mcp.json`)](#️-configuration-reference-toolrcyaml--mcpjson)
-15. [📁 Codebase Directory Structure](#-codebase-directory-structure)
-16. [💻 Programmatic API & SDK Usage](#-programmatic-api--sdk-usage)
-17. [🧪 Test Suite & Verification](#-test-suite--verification)
-18. [📄 License](#-license)
+5. [🛠️ 11 Autonomous Core Tools + Sub-Agent Delegation + MCP](#️-11-autonomous-core-tools--sub-agent-delegation--mcp)
+6. [🤖 Sub-Agent Delegation Engine](#-sub-agent-delegation-engine)
+7. [🩺 System Diagnostics & Health (`/doctor`)](#-system-diagnostics--health-doctor)
+8. [🎨 Dynamic 6-Theme Palette Engine (`/theme`)](#-dynamic-6-theme-palette-engine-theme)
+9. [🔌 Real MCP Prompts & Resources Engine](#-real-mcp-prompts--resources-engine)
+10. [💾 Persistent Project Memory & Dynamic Skills](#-persistent-project-memory--dynamic-skills)
+11. [💰 Token Budget Management & Accounting (`/budget`)](#-token-budget-management--accounting-budget)
+12. [⚡ Non-Interactive Oneshot Agent Mode](#-non-interactive-oneshot-agent-mode)
+13. [🔄 Dual Execution & Interactive Plan Modes](#-dual-execution--interactive-plan-modes)
+14. [⌨️ Keyboard Shortcuts Reference](#️-keyboard-shortcuts-reference)
+15. [📜 Complete Slash Commands Manual](#-complete-slash-commands-manual)
+16. [⚙️ Configuration Reference (`.toolrc.yaml` & `.mcp.json`)](#️-configuration-reference-toolrcyaml--mcpjson)
+17. [📦 Installation & Setup Guide](#-installation--setup-guide)
+18. [📁 Codebase Directory Structure](#-codebase-directory-structure)
+19. [💻 Programmatic API & SDK Usage](#-programmatic-api--sdk-usage)
+20. [🧪 Test Suite & Verification (116 Tests)](#-test-suite--verification-116-tests)
+21. [📄 License](#-license)
 
 ---
 
 ## ✦ Executive Summary & Design Philosophy
 
-**Homogenous** is an autonomous CLI coding assistant designed for engineers who demand total workspace agency, extreme responsiveness, multi-model flexibility, and enterprise security.
+**Homogenous** is designed for engineers who demand total workspace agency, extreme responsiveness, multi-model flexibility, and enterprise security.
 
 Unlike cloud-dependent extensions or heavy web wrappers, Homogenous runs **directly inside your local terminal**, interfacing with your local file system, git repository, shell, and custom tools.
 
 ```
  ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
- │ ✦ HOMOGENOUS AGENT v4.2.7 (Local-First Assistant)                                     workspace: /projects/core [main] │
+ │ ✦ HOMOGENOUS AGENT v4.3.0 (Local-First Assistant)                                     workspace: /projects/core [main] │
  │ model: nvidia/deepseek-ai/deepseek-r1 [671B]                               session: 1.4k tok | $0.002 | 14 loc / 0 cld │
  ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
   ✦ Ctrl+P:Plan | Ctrl+U:Undo | Ctrl+D:Diff | Ctrl+O:Model | Ctrl+A:Auto | Ctrl+L:Clear | Esc:Exit
@@ -64,10 +67,10 @@ Unlike cloud-dependent extensions or heavy web wrappers, Homogenous runs **direc
 ```
 
 ### Core Tenets:
-1. **Local-First & Zero-Trust**: Your source code stays on your machine. File reads, writes, searches, and diff calculations happen locally with strict workspace containment and symlink protections.
+1. **Local-First & Zero-Trust**: Your source code stays on your machine. File operations, git diffs, shell runs, and search indexing happen locally with strict workspace containment and symlink protections.
 2. **Bring Your Own Key (BYOK) & True Permanence**: Connect any cloud provider (`nvidia`, `groq`, `anthropic`, `openai`, `deepseek`, `mistral`, `together`, `openrouter`) or air-gapped local server (`ollama`, `lmstudio`). Keys remain active indefinitely until explicitly unregistered.
 3. **Zero-Leak Security**: Credentials stored at rest are encrypted with machine-bound **AES-256-GCM** encryption (`0600` permissions) and synchronized with OS Keychains. Third-party MCP servers are isolated and never receive parent API keys.
-4. **Full Autonomous Agency**: When given a prompt, Homogenous does not just output suggestions—it inspects files, edits code, runs type checks and test suites, handles errors, and iterates until the feature is complete.
+4. **Full Autonomous Agency**: When given a prompt, Homogenous inspects files, edits code, runs builds, test suites, handles errors, and iterates until the feature is complete.
 
 ---
 
@@ -82,46 +85,48 @@ Unlike cloud-dependent extensions or heavy web wrappers, Homogenous runs **direc
                              ▼                                                         ▼
             ┌──────────────────────────────────┐                      ┌──────────────────────────────────┐
             │   REACTIVE 60 FPS INK FRONTEND   │                      │    AUTOCOMPLETE SUGGESTION BOX   │
-            │  • Live Markdown Parsing         │                      │  • 671B->1B Parameter Sorting    │
+            │  • Live Markdown Table Parsing   │                      │  • 671B->1B Parameter Sorting    │
             │  • Real-time Streaming Words     │                      │  • Active-Credential Filtering   │
-            │  • Mono Table Alignment          │                      │  • Non-Blocking Cursor Movement  │
+            │  • Dynamic 6-Theme Palettes      │                      │  • Non-Blocking Cursor Cycling   │
             └──────────────────────────────────┘                      └──────────────────────────────────┘
                              │                                                         │
                              └────────────────────────────┬────────────────────────────┘
                                                           ▼
                                           ┌───────────────────────────────┐
                                           │      SLASH COMMAND ROUTER     │
+                                          │  • /doctor, /theme, /budget   │
+                                          │  • /mcp, /memory, /skills     │
                                           │  • /login, /logout, /model    │
-                                          │  • /plan, /apply, /undo, /diff│
                                           └───────────────────────────────┘
                                                           │
                                                           ▼
                                           ┌───────────────────────────────┐
                                           │     AUTONOMOUS AGENT LOOP     │
-                                          │  • Multi-Turn Reasoning       │
-                                          │  • Tool Call Dispatcher       │
-                                          │  • Context Compaction         │
+                                          │  • Persistent Memory Prefix   │
+                                          │  • Word-by-Word Delta Stream  │
+                                          │  • Tool Result Aggregation    │
+                                          │  • Token Budget Compactor     │
                                           └───────────────────────────────┘
-                                                          │
-                ┌─────────────────────────────────────────┼─────────────────────────────────────────┐
-                ▼                                         ▼                                         ▼
-┌───────────────────────────────┐         ┌───────────────────────────────┐         ┌───────────────────────────────┐
-│     10 WORKSPACE AGENT TOOLS  │         │   11 INFERENCE PROVIDERS      │         │   ZERO-LEAK SECURITY VAULT    │
-│  • write_file, read_file      │         │  • NVIDIA NIM (550B, R1, 70B) │         │  • AES-256-GCM Vault (0600)   │
-│  • replace_file_content       │         │  • Anthropic (Claude 3.7)     │         │  • OS Keychain Sync (keytar)  │
-│  • grep_search, glob_files    │         │  • Groq (800 tok/s Llama 3.3) │         │  • MCP Process Env Isolation  │
-│  • git_status, diff, log      │         │  • DeepSeek (R1 & V3)         │         │  • Sensitive Path Blacklist   │
-│  • shell_execute (Sandboxed)  │         │  • OpenAI (GPT-4o, o3-mini)   │         │  • Real-Time Token Scrubber   │
-│  • web_fetch (SSRF Shield)    │         │  • Ollama & LM Studio (Local) │         │  • Prompt History Masking     │
-└───────────────────────────────┘         └───────────────────────────────┘         └───────────────────────────────┘
-                │                                         │                                         │
-                └─────────────────────────────────────────┼─────────────────────────────────────────┘
+                                            │             │             │
+                    ┌───────────────────────┘             │             └───────────────────────────┐
+                    ▼                                     ▼                                         ▼
+   ┌──────────────────────────────────┐  ┌──────────────────────────────────┐  ┌──────────────────────────────────┐
+   │       11 WORKSPACE TOOLS         │  │     SUB-AGENT DELEGATION         │  │     MODEL CONTEXT PROTOCOL       │
+   │  • read_file, write_file         │  │  • Bounded Turn Execution        │  │  • Stdio Transport Isolation    │
+   │  • replace_file_content          │  │  • Recursive Loop Prevention     │  │  • Tool, Prompt & Resource API │
+   │  • grep_search, glob_files       │  │  • Output Stream Isolation       │  │  • In-Memory ResourceCache      │
+   │  • git_status, git_diff, git_log │  └──────────────────────────────────┘  └──────────────────────────────────┘
+   │  • shell_execute, web_fetch      │
+   └──────────────────────────────────┘
+                    │                                     │                                         │
+                    └─────────────────────────────────────┼─────────────────────────────────────────┘
                                                           ▼
                                           ┌───────────────────────────────┐
-                                          │    PERSISTENT PROJECT MEMORY  │
-                                          │  • .agentmemory/facts.json    │
-                                          │  • .homogenous/skills/        │
-                                          │  • .mcp.json Tool Connectors  │
+                                          │    11 INFERENCE PROVIDERS     │
+                                          │  • Offline: Ollama, LM Studio │
+                                          │  • Cloud: Anthropic, OpenAI,  │
+                                          │    NVIDIA, Groq, DeepSeek,    │
+                                          │    Mistral, Together, Router  │
                                           └───────────────────────────────┘
 ```
 
@@ -129,431 +134,275 @@ Unlike cloud-dependent extensions or heavy web wrappers, Homogenous runs **direc
 
 ## 🛡️ Enterprise Zero-Leak Security Vault
 
-Homogenous v4.0.0 implements an industry-leading security architecture ensuring credentials and private files can never leak to the screen, child processes, third-party MCP servers, or cloud models:
+Homogenous features an enterprise-grade zero-trust security architecture:
 
-```
- ┌──────────────────────────────────────────────────────────────────────────────────────────┐
- │                        HOMOGENOUS ZERO-LEAK SECURITY VAULT                               │
- └──────────────────────────────────────────────────────────────────────────────────────────┘
-             │
-             ├── 1. HARDWARE-BOUND AES-256-GCM ENCRYPTED VAULT (~/.homogenous/keys.json @ 0600)
-             │      • Encrypted at rest using a machine-derived SHA-256 seed.
-             │      • Plaintext credentials never exist on disk.
-             │      • Primary storage sync with OS Keychains (Windows Credential Manager / macOS Keychain).
-             │
-             ├── 2. THIRD-PARTY MCP SUBPROCESS ISOLATION
-             │      • Strips all parent API keys (*_API_KEY, *_SECRET, *_TOKEN, HOMOGENOUS_*) before
-             │        spawning MCP servers. Passes only clean system environment + user cfg.env.
-             │
-             ├── 3. SENSITIVE FILE & CREDENTIAL PATH BLACKLIST
-             │      • Tools (read_file, write_file, grep, glob, cat, head) strictly block access to:
-             │        - ~/.homogenous/keys.json
-             │        - .ssh/id_rsa, .ssh/id_ed25519, *.key
-             │        - .aws/credentials, .azure/, .config/gcloud/
-             │        - .git-credentials, .netrc, .npmrc
-             │        - *.pem, *.pfx, *.p12 certificate stores
-             │
-             ├── 4. ACTIVE TOOL OUTPUT & TURN CONTEXT SCRUBBING
-             │      • Tool outputs (git diff, git log, grep, shell_execute) are actively scrubbed for
-             │        known active keys and high-entropy patterns before entering LLM turn memory.
-             │
-             ├── 5. PROMPT HISTORY & ERROR SANITIZATION
-             │      • Typing '/login <provider> <key>' is masked in terminal history (↑/↓) as ●●●●●●●●.
-             │      • Diagnostic commands (/config) and error toasts automatically redact sensitive keys.
-             │
-             └── 6. ZERO LLM CONTEXT INJECTION
-                    • Credentials exist strictly in the inference network layer and are never injected
-                      into system prompts, tool schemas, or conversational turns.
-```
+1. **Hardware-Bound AES-256-GCM Vault**:
+   - API keys are encrypted at rest in `~/.homogenous/keys.json` using AES-256-GCM authenticated encryption.
+   - The key is derived uniquely per machine using a combination of hostname, username, and OS machine seed.
+2. **OS Keychain Synchronization**:
+   - Keys are automatically synchronized with the native OS Keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service).
+3. **Child Process Environment Sanitization**:
+   - When spawning shell commands or third-party MCP servers, Homogenous scrubs all API keys and authorization tokens from the inherited environment variables.
+4. **Zero Plaintext In-Terminal Exposure**:
+   - Prompts containing `/login` have their secrets redacted in history (`●●●●●●●●`).
+   - `/doctor` displays credential presence only (`[Configured ✓]`), never exposing keys.
+5. **SSRF & Network Shield**:
+   - The `web_fetch` tool validates IP resolution, blocking loopback (`127.0.0.1`), link-local (`169.254.169.254`), private RFC1918 subnets, IPv4-mapped IPv6, and cloud metadata endpoints.
+6. **Workspace Containment**:
+   - File tools enforce directory boundary checks, blocking path traversal (`../`) and unauthorized access outside the workspace root.
 
 ---
 
 ## 🧠 11 Multi-Provider Inference Engines
 
-Homogenous unifies all major frontier cloud backends and local neural inference runtimes behind a single, high-performance TypeScript abstraction:
+Homogenous unifies local offline LLMs and frontier cloud APIs behind a single normalized interface:
 
-| Provider | Key Model Offerings & Parameter Capacity | Primary Capabilities |
-| :--- | :--- | :--- |
-| **NVIDIA NIM** | `deepseek-ai/deepseek-r1` (671B), `nemotron-3-ultra-550b-a55b` (550B), `nemotron-4-340b-instruct` (340B), `meta/llama-3.3-70b-instruct` (70B), `mistralai/mixtral-8x22b-instruct-v0.1` (176B) | Enterprise-scale frontier reasoning, massive context windows, ultra-large open models |
-| **Anthropic** | `claude-3-7-sonnet-20250219` (200B Reasoning), `claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-opus` | Deep multi-file refactoring, hybrid thinking/reasoning, complex code synthesis |
-| **DeepSeek** | `deepseek-reasoner` (R1 671B Reasoning), `deepseek-chat` (V3 671B MoE) | State-of-the-art algorithmic problem solving, competitive coding, math reasoning |
-| **Groq** | `llama-3.3-70b-versatile` (70B), `llama-3.1-8b-instant` (8B) | Ultra-low latency inference (800+ tokens/sec) on LPU hardware, instant triage |
-| **OpenAI** | `gpt-4o`, `gpt-4o-mini`, `o3-mini`, `o1`, `o1-mini` | Universal reasoning, structured output generation, general coding intelligence |
-| **Mistral AI** | `mistral-large-latest` (123B), `codestral-latest` (22B Coding), `open-mixtral-8x22b` (176B) | European sovereign AI, high-efficiency coding, multilingual codebases |
-| **Together AI** | `meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo` (405B), `Mixtral-8x22B` | Mega-scale open-weight inference with fast serverless hosting |
-| **OpenRouter** | Any OpenRouter routing string (`anthropic/claude-3.5-sonnet`, `deepseek/deepseek-r1`) | Multi-provider fallback router, unified billing |
-| **Ollama** | Any locally pulled model (`qwen2.5-coder:14b`, `deepseek-r1:8b`, `llama3.3:70b`) | 100% offline, air-gapped private development on local GPU/CPU |
-| **LM Studio** | Any local OpenAI-compatible endpoint (`http://localhost:1234/v1`) | Local GPU-accelerated GGUF models |
-| **Mock** | Deterministic internal test harness | Offline development, automated testing, and CI/CD validation |
+| Provider | Type | Typical Latency | Supported Models |
+| :--- | :--- | :--- | :--- |
+| **Ollama** | Offline Local | 5–20 ms TTFT | `llama3.3`, `qwen2.5-coder`, `deepseek-r1:14b`, `codellama`, etc. |
+| **LM Studio** | Offline Local | 5–20 ms TTFT | Any GGUF model loaded in LM Studio on `localhost:1234` |
+| **NVIDIA NIM** | Cloud API | ~180 ms TTFT | `deepseek-ai/deepseek-r1` (671B), `meta/llama-3.3-70b-instruct` |
+| **Groq** | Cloud API | ~80 ms TTFT | `llama-3.3-70b-versatile`, `mixtral-8x7b-32768` |
+| **Anthropic** | Cloud API | ~350 ms TTFT | `claude-3-7-sonnet-20250219`, `claude-3-5-haiku-20241022` |
+| **OpenAI** | Cloud API | ~250 ms TTFT | `gpt-4o`, `gpt-4o-mini`, `o1`, `o3-mini` |
+| **DeepSeek** | Cloud API | ~220 ms TTFT | `deepseek-chat`, `deepseek-reasoner` |
+| **OpenRouter** | Cloud API | ~300 ms TTFT | Aggregated access to 200+ frontier & open models |
+| **Mistral AI** | Cloud API | ~200 ms TTFT | `mistral-large-latest`, `codestral-latest` |
+| **Together AI**| Cloud API | ~150 ms TTFT | `meta-llama/Llama-3.3-70B-Instruct-Turbo`, `Qwen/Qwen2.5-Coder-32B` |
+| **Mock** | In-Memory | 1 ms | Deterministic test mock provider for headless CI/CD |
 
 ---
 
-## 🛠️ 10 Autonomous Core Tools + MCP
+## 🛠️ 11 Autonomous Core Tools + Sub-Agent Delegation + MCP
 
-Homogenous comes equipped with 10 built-in workspace tools that operate under strict zero-trust containment:
+Homogenous comes equipped with 11 native workspace tools:
 
-| Tool | Parameters | Description & Security Guardrails |
+| Tool Name | Scope | Description |
 | :--- | :--- | :--- |
-| `write_file` | `path`, `content` | Creates a new file or overwrites an existing file with complete content. Automatically scaffolds parent directories. Enforces workspace containment and denies sensitive security paths. |
-| `read_file` | `path`, `startLine?`, `endLine?` | Reads file content with 1-indexed line numbers. Supports slice ranges to minimize token consumption. Rejects access to credential vaults and SSH keys. |
-| `replace_file_content` | `path`, `targetContent`, `replacementContent` | Surgically finds and replaces exact code blocks. Records edit snapshots in the `DiffEngine` undo stack for instant `/undo` rollbacks. |
-| `grep_search` | `query`, `path?` | Searches for exact strings or regex patterns across files using ripgrep with an automatic JavaScript fallback. Automatically excludes `.git`, `node_modules`, `dist`, and sensitive paths. |
-| `glob_files` | `pattern` | Finds workspace files matching glob extensions or filenames. |
-| `git_status` | — | Inspects repository status (modified files, staged changes, untracked files). |
-| `git_diff` | `staged?` | Returns unified git diffs for uncommitted or staged workspace changes. Output is scrubbed of sensitive secrets. |
-| `git_log` | `count?` | Inspects the most recent repository commit history. |
-| `shell_execute` | `command` | Executes shell commands in workspace root. Under Auto Mode, allowlisted safe read-only commands run automatically; all other commands prompt for user confirmation. |
-| `web_fetch` | `url`, `maxChars?` | Fetches live web pages and documentation with HTML-to-text conversion. Protected by an advanced SSRF shield (blocks loopback, link-local, cloud metadata, and encoded IPs). |
-| **MCP Tools** | Dynamic | Connects to arbitrary third-party tools via the Model Context Protocol (MCP). Subprocesses run in an isolated environment with parent credentials stripped. |
+| `read_file` | Local FS | Read complete or line-range slices of files with middle elision on long outputs. |
+| `write_file` | Local FS | Atomically create new files or perform full file rewrites. |
+| `replace_file_content` | Local FS | Perform exact string replacements preserving line structure and special symbols (`$`). |
+| `list_dir` | Local FS | Recursively list directory trees, file sizes, and directory entry counts. |
+| `glob_files` | Local FS | Fast pattern search using wildcards (e.g., `src/**/*.ts`, `*.json`). |
+| `grep_search` | Local FS | High-speed regex or literal content search (native `rg` or JavaScript fallback). |
+| `git_status` | Version Control | Inspect working tree dirty state, staged changes, and untracked files. |
+| `git_diff` | Version Control | Review staged or unstaged diffs with file snapshot rollback support. |
+| `git_log` | Version Control | Inspect recent commit history, author metadata, and commit hashes. |
+| `shell_execute` | Sandbox | Run terminal commands, test runners, and build scripts with zero-trust checks. |
+| `web_fetch` | Network | Fetch external documentation and web pages with SSRF prevention and HTML-to-text conversion. |
+| `delegate_task` | Agent Engine | Spawn an isolated sub-agent with bounded turns to perform deep research or triage. |
+
+---
+
+## 🤖 Sub-Agent Delegation Engine
+
+The `delegate_task` tool allows the primary agent to spawn focused, autonomous sub-agents for isolated tasks without cluttering the main conversation window.
+
+### Key Capabilities:
+- **Bounded Execution**: Sub-agents operate with an explicit `maxTurns` limit (default: 8), preventing runaway API spend.
+- **Recursion Guard (`disableSubAgent: true`)**: Child agents are structurally prohibited from calling `delegate_task`, guaranteeing zero infinite delegation loops.
+- **TUI Output Isolation**: When running inside the interactive Ink terminal, sub-agents execute in silent mode to prevent raw stdout from corrupting the raw-mode terminal display.
+- **Automated Summarization**: Sub-agents distill their multi-turn exploration and return a concise summary report to the parent agent.
+
+```bash
+# Example agent prompt that invokes sub-agent delegation:
+homogenous > "Audit all dependencies in package.json for known vulnerabilities and report findings"
+```
+
+---
+
+## 🩺 System Diagnostics & Health (`/doctor`)
+
+The `/doctor` command performs an instant, comprehensive health check across your entire development environment:
+
+```bash
+/doctor
+```
+
+```text
+🩺 Homogenous System Diagnostics & Environment Health Report
+────────────────────────────────────────────────────────────
+• Node.js Runtime:     v20.18.0 [✓ OK]
+• Operating System:    win32 (Windows_NT 10.0.26100, x64)
+• Terminal / TTY:      Interactive TTY (140x35)
+• Workspace Path:      C:/Users/codex/Music/CLI Tool
+• Git Repository:      Branch 'main' (0 uncommitted changes)
+• Fast Search (rg):    Native binary available (ripgrep 14.1.0)
+• GPU / VRAM:          NVIDIA GPU Active (4.2GB / 12.0GB VRAM used)
+• Local Ollama:        Online at http://localhost:11434 (8 models loaded)
+• Local LM Studio:     Online at http://localhost:1234 (2 models loaded)
+• Cloud Providers:     anthropic [Configured ✓], groq [Configured ✓]
+• MCP Configuration:   2 server(s) configured (filesystem, github)
+• Project Memory:      4 stored fact(s) in .agentmemory/facts.json
+────────────────────────────────────────────────────────────
+Diagnostics complete. System is healthy.
+```
+
+### Probes Evaluated:
+1. **Node.js Engine**: Verifies version `>= 20.0.0`.
+2. **Git Repository**: Inspects active branch, repo root, and uncommitted changes.
+3. **Ripgrep (`rg`)**: Detects native binary presence vs JS fallback.
+4. **GPU / VRAM Probe**: Probes NVIDIA GPU VRAM via non-blocking `getVramInfo()` (or CPU mode).
+5. **Local LLM Daemons**: Non-blocking ping (600ms timeout) to Ollama and LM Studio.
+6. **Keychain Vault**: Audits configured provider credentials with complete key redaction.
+7. **MCP Configuration**: Parses `.mcp.json` and verifies active servers.
+8. **Persistent Memory**: Verifies `.agentmemory/facts.json` fact counts.
+
+---
+
+## 🎨 Dynamic 6-Theme Palette Engine (`/theme`)
+
+Homogenous includes 6 hand-crafted terminal color palettes designed for maximum legibility and rich aesthetics:
+
+| Theme ID | Primary Color | Secondary Color | Aesthetic Vibe |
+| :--- | :--- | :--- | :--- |
+| `neon` | `#00F0FF` (Cyan) | `#FF2ED1` (Magenta) | Cyberpunk high-contrast neon (Default) |
+| `cyberpunk` | `#FFE600` (Yellow) | `#00E5FF` (Cyan) | Electric industrial cyber aesthetic |
+| `dracula` | `#BD93F9` (Purple) | `#FF79C6` (Pink) | Classic dark gothic palette with green accents |
+| `nord` | `#88C0D0` (Frost) | `#81A1C1` (Blue) | Arctic frost and calm slate tones |
+| `monokai` | `#66D9EF` (Cyan) | `#F92672` (Rose) | Classic warm code editor theme |
+| `plain` | `cyan` | `magenta` | Standard 16-color ANSI terminal fallback |
+
+### Usage:
+```bash
+/theme                                      # List available themes and show active palette
+/theme dracula                              # Instantly switch to Dracula theme
+/theme nord                                 # Switch to Nord theme
+/theme cyberpunk                            # Switch to Cyberpunk theme
+```
+
+> [!NOTE]
+> **Strict `NO_COLOR` Compliance**: When `NO_COLOR` is set in your environment or when running in non-TTY pipelines, Homogenous automatically forces the `plain` monochrome theme, adhering strictly to the [NO_COLOR standard](https://no-color.org).
+
+---
+
+## 🔌 Real MCP Prompts & Resources Engine
+
+Homogenous integrates with the **Model Context Protocol (MCP)**, supporting Tools, Prompts, and Resources:
+
+```bash
+/mcp list                                   # View connected MCP servers and active tools
+/mcp reload                                 # Reconnect transports and discover newly added tools
+/mcp prompts                                # List all prompt templates exposed by connected servers
+/mcp prompt <server> <prompt-name> [k=v]    # Invoke an MCP prompt template into conversation
+/mcp resources                              # Browse available MCP resources
+```
+
+### In-Memory Resource Cache (`ResourceCache`)
+When resources are read via MCP, they are cached in memory with automatic TTL expiration, middle-elided for token limits, and recorded in the token budget ledger.
+
+---
+
+## 💾 Persistent Project Memory & Dynamic Skills
+
+### 1. Persistent Memory Injection
+Unlike traditional CLI tools where context is lost between sessions, Homogenous maintains `.agentmemory/facts.json` per project.
+
+These facts are **automatically injected into the system prompt prefix** at runtime:
+```bash
+/memory list                                # View all saved facts for this repository
+/memory add "Project uses ESM imports only" # Save architectural fact
+/memory remove <id>                         # Remove specific fact
+/memory clear                               # Clear all project memory
+```
+
+### 2. Dynamic Skills System
+Modular skill packs extend the agent's capabilities with specialized domain prompts and tools:
+```bash
+/skills list                                # View installed and bundled skills
+/skills install <path-or-repo>              # Install a custom skill pack
+/skills create <name>                       # Scaffold a new custom skill
+/skills remove <name>                       # Uninstall a skill pack
+```
+
+---
+
+## 💰 Token Budget Management & Accounting (`/budget`)
+
+Track every token and dollar spent with millisecond precision:
+
+```bash
+/cost                                       # Quick one-line spend summary
+/budget                                     # View session utilization meter
+/budget --report                            # Detailed breakdown (input, output, cache hits, calls)
+/budget set 10.00                           # Set session spending ceiling to $10.00 USD
+/budget reset                               # Clear records and reset spend counters to $0.00
+```
+
+---
+
+## ⚡ Non-Interactive Oneshot Agent Mode
+
+Automate builds, refactors, and investigations in CI/CD pipelines or shell scripts without launching the interactive Ink TUI:
+
+```bash
+# 1. Simple streaming completion:
+homogenous oneshot "Explain the difference between interface and type in TypeScript"
+
+# 2. Autonomous Agent Execution (with tools, edits, and tests):
+homogenous oneshot "Run test suite and fix any failing assertions" --agent
+
+# 3. Model Override with Agent Mode:
+homogenous oneshot "Analyze codebase dependencies and output a summary table" -m anthropic/claude-3-5-haiku-20241022 -a
+```
 
 ---
 
 ## 🔄 Dual Execution & Interactive Plan Modes
 
-Homogenous provides three operational workflows tailored to different task granularities:
+Homogenous provides two execution flows depending on task complexity:
 
-### 1. Normal Mode (Default)
-Commands that modify files are executed autonomously by the agent loop, while terminal shell commands (`shell_execute`) prompt for explicit confirmation before execution.
+### 1. Direct Execution Mode (Normal / Auto)
+- Prompts execute immediately.
+- In **Normal Mode**, shell executions and destructive operations require explicit user approval.
+- In **Auto Mode** (`/auto` or `Ctrl+A`), allowlisted workspace tools execute autonomously.
 
-### 2. Auto-Approve Mode (`/auto on` or `Ctrl+A`)
-For high-velocity triage and read-heavy tasks. Allowlisted non-destructive commands (`cat`, `type`, `head`, `tail`, `ls`, `dir`, `pwd`, `date`, `node -v`, `npm list`, `tsc --noEmit`) execute automatically without interrupting you.
-
-### 3. Interactive Plan & Apply Mode (`/plan on` or `Ctrl+P`)
-For complex, multi-file refactoring or high-stakes architectural changes.
-- In Plan Mode, Homogenous **does not modify files on disk**.
-- Instead, it generates a comprehensive, step-by-step architectural blueprint detailing all proposed file modifications.
-- You can review the plan and execute it with `/apply` or discard it with `/reject`.
-
-```bash
-homogenous > /plan on
-homogenous > refactor authentication from session cookies to stateless JWT with refresh rotation
-# (Agent outputs structured Plan Blueprint)
-homogenous > /apply
-# (Agent executes multi-file modifications and verifies tests)
-```
+### 2. Interactive Planning Mode (`/plan` or `Ctrl+P`)
+- The agent formulates a structured step-by-step implementation plan.
+- The plan outlines affected files, components, and actions (`[NEW]`, `[MODIFY]`, `[DELETE]`).
+- Execute steps interactively using `/apply` or abandon with `/plan off`.
+- Any file edit can be instantly undone using `/undo` or `Ctrl+U`.
 
 ---
 
-## ⚡ Reactive 60 FPS Terminal UI & Ergonomics
+## ⌨️ Keyboard Shortcuts Reference
 
-The Homogenous interface is powered by a custom **Ink/React reactive engine**:
-
-- **Sub-Millisecond Typing Tracking**: Zero typing latency, smooth word-by-word streaming animations, and instantaneous key response.
-- **Dynamic Active Autocomplete**:
-  - Typing `/` triggers fuzzy command completion (`/mod` → `/model`, `/th` → `/theme`, `/mem` → `/memory`).
-  - Typing `@` opens dynamic file and directory autocomplete.
-  - Subcommands auto-suggest valid options (`/mode auto`, `/theme dracula`, `/mcp reload`).
-  - Cursor positions jump to end of text upon `Tab` or `Enter` selection without freezing.
-- **Visual Syntax Rendering**: Markdown headings, bold/italic typography, and clean ASCII box tables with monospace column calculations that never misalign.
-- **5 Curated Color Themes**: Switch themes anytime via `/theme <neon | cyberpunk | monochrome | dracula | nord>`.
-
----
-
-## 💾 Persistent Memory & Dynamic Skills
-
-### Persistent Project Memory
-Homogenous remembers project architecture, styling preferences, and engineering conventions across sessions. Facts are stored in `.agentmemory/facts.json`:
-
-```bash
-# Add a persistent convention
-/memory add "Always use Zod for runtime schema validation in API routes"
-
-# List remembered facts
-/memory list
-
-# Remove a specific fact
-/memory remove <fact-id>
-```
-
-### Dynamic Domain Skills
-Skills are specialized instruction sets located in `.homogenous/skills/` or bundled with Homogenous. When your prompt matches a skill keyword, the skill activates dynamically:
-
-```bash
-# Scaffold a new skill
-/skills create react-performance-optimizer
-
-# List all available skills
-/skills list
-```
-
----
-
-## 💰 Budgeting, Cost Ledger & Token Compaction
-
-Homogenous tracks token consumption and financial spend across all 11 providers in real-time:
-
-- **Token Compaction**: Automatically detects when context approaches provider limits and performs intelligent lossless summarization.
-- **Budget Alerts**: Set session cost thresholds via `/budget set 2.00`.
-- **Cost Ledger**: Inspect exact prompt token counts, completion token counts, and USD cost via `/cost`.
-
----
-
-## 📦 Installation & Setup Guide
-
-### System Requirements
-- **Node.js**: v20.0.0 or higher
-- **OS**: Windows (x64/ARM64), macOS (Intel/Apple Silicon), or Linux (x64/ARM64)
-- **Git**: Installed and available in your `PATH`
-
-### 1. Global Installation via NPM
-```bash
-npm install -g @codexgamerz/homogenous
-```
-
-### 2. PowerShell One-Liner (Windows)
-```powershell
-irm https://raw.githubusercontent.com/CODExGAMERZ/homogenous/main/install.ps1 | iex
-```
-
-### 3. Bash One-Liner (Linux / macOS)
-```bash
-curl -fsSL https://raw.githubusercontent.com/CODExGAMERZ/homogenous/main/install.sh | bash
-```
-
-### 4. Direct Execution via npx
-```bash
-npx @codexgamerz/homogenous@latest
-```
-
----
-
-## 🚀 Quickstart & Workflow Walkthrough
-
-### 1. Launch the Assistant
-Run from any project repository:
-```bash
-homogenous
-```
-
-### 2. Register Your AI Provider Credentials
-```bash
-# NVIDIA NIM (550B Nemotron, DeepSeek R1, Llama 3.3 70B)
-/login nvidia nvapi-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# Groq (800 tok/sec Llama 3.3 70B & 8B)
-/login groq gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# Anthropic (Claude 3.7 Sonnet Reasoning)
-/login anthropic sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# OpenAI (GPT-4o, o3-mini)
-/login openai sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# DeepSeek (R1 & V3 MoE)
-/login deepseek sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-```
-
-### 3. Pick a Model
-Open the suggestion box with `Ctrl+O` or switch directly:
-```bash
-/model nvidia/deepseek-ai/deepseek-r1
-/model groq/llama-3.3-70b-versatile
-/model anthropic/claude-3-7-sonnet-20250219
-/model ollama/qwen2.5-coder:14b
-```
-
-### 4. Build, Edit, and Refactor!
-```bash
-# Create files
-homogenous > create a Next.js 15 landing page in app/page.tsx with TailwindCSS and dark mode
-
-# Edit existing files using @mentions
-homogenous > @app/page.tsx add a testimonials carousel with responsive breakpoints
-
-# Run tests and fix errors
-homogenous > run npm test and fix any failing unit tests in test/auth.test.ts
-```
-
----
-
-## ⌨️ Universal Keyboard Shortcuts Reference
-
-When working in the interactive REPL, Homogenous provides instant single-stroke keyboard shortcuts:
-
-| Shortcut | Command Equivalent | Action & Behavior |
+| Shortcut | Action | Description |
 | :--- | :--- | :--- |
-| `Ctrl + P` | `/plan` | **Toggle Planning Mode**: Switch between interactive plan generation and direct execution. In Plan Mode, dry-run blueprints are produced without writing to disk. |
-| `Ctrl + A` | `/auto` | **Toggle Auto-Approve Mode**: Toggle automated execution for allowlisted, read-only system tools and inspections without user prompts. |
-| `Ctrl + O` / `Ctrl + M` | `/model` | **Open Model Picker**: Launch the interactive suggestion box populated with active models sorted from largest (671B) to smallest (1B). |
-| `Ctrl + U` | `/undo` | **Revert Last Edit**: Roll back the most recent file write or surgical replacement using the `DiffEngine` snapshot undo stack. |
-| `Ctrl + D` | `/diff` | **View Session Diff**: Display a syntax-highlighted unified git diff of all file modifications performed during the active session. |
-| `Ctrl + L` | `/clear` | **Clear Screen**: Reset the terminal viewport, clear scrollback history, and redisplay the header status bar. |
-| `Shift + Enter` / `Ctrl + J` | — | **Insert New Line**: Insert a clean newline in the prompt input bar without submitting, enabling multi-line prompt editing. |
-| `Enter` | — | **Submit Prompt / Select**: Submit the current prompt to the assistant or select the currently highlighted autocomplete suggestion. |
-| `Tab` / `Shift + Tab` | — | **Cycle Autocomplete**: Step forward or backward through slash commands, subcommands, active models, or `@file` path suggestions. |
-| `↑` / `↓` | — | **History & Navigation**: Cycle through prompt history (sensitive credentials are automatically masked) or navigate suggestion items. |
-| `Esc` / `Ctrl + C` | `/exit` | **Graceful Exit**: Disconnect child MCP server processes, commit persistent session memory, and cleanly exit the CLI. |
+| `Ctrl+P` | `/plan` | Toggle interactive Planning Mode on/off |
+| `Ctrl+U` | `/undo` | Roll back the most recent file edit snapshot |
+| `Ctrl+D` | `/diff` | Display colorized git diff of all session changes |
+| `Ctrl+O` | `/model` | Open dynamic model picker |
+| `Ctrl+A` | `/auto` | Toggle autonomous auto-approval mode |
+| `Ctrl+L` | `/clear` | Clear terminal conversation feed |
+| `Tab` / `Shift+Tab` | Cycling | Cycle forward/backward through autocomplete suggestions |
+| `Esc` | `/exit` | Exit the CLI session cleanly |
 
 ---
 
 ## 📜 Complete Slash Commands Manual
 
-Homogenous includes a comprehensive suite of slash commands for session control, configuration, memory, and model management:
-
-### 🤖 Model & Provider Management
-
-#### `/model [model-name | index]`
-Inspect the active provider/model or switch models interactively. When run without arguments or with partial text, it displays models with active credentials or local running servers sorted by parameter capacity:
-```bash
-/model                                      # Open interactive model picker sorted by parameter scale
-/model nvidia/deepseek-ai/deepseek-r1       # Switch to DeepSeek R1 671B via NVIDIA NIM
-/model groq/llama-3.3-70b-versatile         # Switch to Groq ultra-fast 800 tok/sec Llama 3.3
-/model anthropic/claude-3-7-sonnet-20250219 # Switch to Claude 3.7 Sonnet Reasoning
-/model ollama/qwen2.5-coder:14b             # Switch to local offline Ollama Qwen model
-```
-
-#### `/login <provider> <api-key>`
-Saves and registers an API key permanently in your machine-bound encrypted vault (`~/.homogenous/keys.json` @ 0600) and OS Keychain. The key is verified with a live ping check before saving:
-```bash
-/login nvidia nvapi-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-/login groq gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-/login anthropic sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxx
-/login openai sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-/login deepseek sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-/login mistral xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-/login together xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-/login openrouter sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxx
-```
-
-#### `/logout <provider>` / `/unregister <provider>`
-Unregisters and permanently deletes the stored API key for a provider from the local encrypted vault and OS Keychain:
-```bash
-/logout nvidia                              # Remove stored NVIDIA NIM API key
-/unregister groq                            # Remove stored Groq API key
-```
-
----
-
-### 🎯 Workflow & Execution Modes
-
-#### `/mode <normal | auto | plan>`
-Inspects or switches the runtime agent execution mode:
-```bash
-/mode normal                                # Standard mode: edits files, prompts before running shell commands
-/mode auto                                  # Auto-Approve: safe read-only commands execute automatically
-/mode plan                                  # Plan Mode: generates non-destructive blueprint plans
-```
-
-#### `/plan [on | off | prompt]`
-Controls Interactive Planning Mode. When enabled, Homogenous analyzes your request and generates a multi-step blueprint detailing every file to be created, modified, or deleted without modifying disk:
-```bash
-/plan on                                    # Turn on Plan Mode
-/plan off                                   # Turn off Plan Mode
-```
-
-#### `/apply`
-Approves and executes all proposed file modifications in the active plan blueprint through the autonomous `AgentLoop`:
-```bash
-/apply                                      # Execute the pending plan modifications
-```
-
-#### `/reject`
-Discards the currently pending plan blueprint without making any changes to workspace files:
-```bash
-/reject                                     # Discard active plan
-```
-
----
-
-### ⏪ Inspection, Diff & Rollback
-
-#### `/undo`
-Instantly reverts the last file write or code replacement made by the assistant using the `DiffEngine` snapshot stack:
-```bash
-/undo                                       # Roll back the most recent file edit
-```
-
-#### `/diff [staged]`
-Renders a colorized unified git diff showing all modifications made during the active session:
-```bash
-/diff                                       # Show all uncommitted workspace changes
-/diff staged                                # Show only staged git changes
-```
-
-#### `/copy`
-Copies the most recent code block outputted by the assistant directly to your system clipboard:
-```bash
-/copy                                       # Copy last code snippet to clipboard
-```
-
----
-
-### 🧠 Memory, Skills & Tools
-
-#### `/memory [list | add <fact> | remove <id> | clear]`
-Manages persistent project conventions and architectural rules stored in `.agentmemory/facts.json`:
-```bash
-/memory list                                # List all remembered facts with metadata
-/memory add "Use pnpm instead of npm"       # Add a persistent convention to project memory
-/memory remove fact-1741234567-890          # Remove a specific memory fact by ID
-/memory clear                               # Clear all project memory facts
-```
-
-#### `/skills [list | create <name> | remove <name>]`
-Manages on-demand modular domain skills stored in `.homogenous/skills/`:
-```bash
-/skills list                                # List all bundled and project-specific skills
-/skills create nextjs-seo-optimizer         # Scaffold a new skill directory with instructions
-/skills remove nextjs-seo-optimizer         # Remove a project skill
-```
-
-#### `/mcp [list | reload]`
-Inspects and manages Model Context Protocol (MCP) tool integrations configured in `.mcp.json`:
-```bash
-/mcp list                                   # View connected MCP servers and exposed tools
-/mcp reload                                 # Reconnect and reload all MCP tool servers
-```
-
----
-
-### 🎨 Diagnostics, Theme & Budget
-
-#### `/theme [neon | cyberpunk | monochrome | dracula | nord]`
-Switches the terminal color palette dynamically:
-```bash
-/theme neon                                 # High-contrast cyan and magenta palette (default)
-/theme cyberpunk                            # Electric yellow and cyan theme
-/theme dracula                              # Classic purple and pink Dracula theme
-/theme nord                                 # Cool arctic blue and frost palette
-/theme monochrome                           # Clean plain text for accessibility & CI
-```
-
-#### `/cost` / `/budget [set <limit>]`
-Inspects token consumption, input/output token counts, and calculates USD cost:
-```bash
-/cost                                       # View token usage and cost for the active session
-/budget set 5.00                            # Set a session budget limit of $5.00 USD
-```
-
-#### `/config`
-Displays active configuration settings, model routing matrix, and security status (all API keys are redacted):
-```bash
-/config                                     # Print active .toolrc.yaml settings
-```
-
-#### `/doctor`
-Runs comprehensive system environment diagnostics, checking Node.js version, Git binary, GPU/VRAM status, OS Keychain availability, and inference provider connectivity:
-```bash
-/doctor                                     # Run full diagnostic self-check
-```
-
-#### `/clear`
-Clears the terminal viewport and resets conversation display feed:
-```bash
-/clear                                      # Clear screen
-```
-
-#### `/help`
-Displays the full command reference matrix and quickstart documentation:
-```bash
-/help                                       # Display command matrix
-```
-
-#### `/exit`
-Safely closes background connections and exits Homogenous:
-```bash
-/exit                                       # Exit CLI session
-```
+| Command | Category | Usage | Description |
+| :--- | :--- | :--- | :--- |
+| `/doctor` | Utility | `/doctor` | Run full system environment and provider health diagnostics |
+| `/theme` | Config | `/theme [name]` | View or switch terminal theme (`neon`, `cyberpunk`, `dracula`, `nord`, `monokai`, `plain`) |
+| `/budget` | Session | `/budget [set <amt> \| reset \| --report]` | Manage token spending limits, view breakdown, or reset counters |
+| `/cost` | Session | `/cost` | Print token budget ledger breakdown and cost accounting |
+| `/mcp` | Config | `/mcp [list \| reload \| prompts \| prompt <s\> <p\> \| resources]` | Manage MCP servers, tools, prompt templates, and resources |
+| `/model` | Model | `/model [provider/model-id]` | Switch active inference model or list available models |
+| `/login` | Auth | `/login <provider> <key>` | Securely store provider API key in encrypted keychain vault |
+| `/logout` | Auth | `/logout <provider>` | Remove stored credentials for a provider |
+| `/plan` | Mode | `/plan [prompt]` | Formulate a multi-step structured implementation plan |
+| `/apply` | Mode | `/apply [all \| step#]` | Execute planned steps interactively |
+| `/undo` | Edit | `/undo` | Revert the last file modification made by the agent |
+| `/diff` | Edit | `/diff` | Show colorized diff of unstaged/staged workspace edits |
+| `/memory` | Memory | `/memory [list \| add <text> \| remove <id> \| clear]` | Manage persistent project memory facts |
+| `/skills` | Utility | `/skills [list \| install <src> \| create <name> \| remove <name>]` | Manage dynamic skills packs |
+| `/mode` | Mode | `/mode [normal \| auto \| plan]` | Switch agent execution mode |
+| `/copy` | Utility | `/copy [index]` | Copy the latest generated code block to the OS clipboard |
+| `/clear` | Session | `/clear` | Clear terminal display feed |
+| `/help` | Utility | `/help` | Display interactive command manual |
+| `/exit` | Session | `/exit` | Exit Homogenous session |
 
 ---
 
@@ -565,48 +414,45 @@ Place in your workspace root or `~/.homogenous/.toolrc.yaml` for global defaults
 ```yaml
 # Homogenous Global Configuration
 mode: normal # normal | auto | plan
-theme: neon # neon | cyberpunk | monochrome | dracula | nord
+theme: neon  # neon | cyberpunk | dracula | nord | monokai | plain
 
+# Token Budget Limits
+maxSessionCostUSD: 5.00
+
+# Task-Based Model Routing
 routing:
-  complexEdit: nvidia/deepseek-ai/deepseek-r1
+  fastSearch: groq/llama-3.3-70b-versatile
+  complexEdit: anthropic/claude-3-7-sonnet-20250219
   planning: anthropic/claude-3-7-sonnet-20250219
-  fileSearch: groq/llama-3.1-8b-instant
-  lintSummary: groq/llama-3.1-8b-instant
-  embedding: ollama/nomic-embed-text
+  quickQuestion: groq/llama-3.3-70b-versatile
+  codeReview: anthropic/claude-3-7-sonnet-20250219
 
-budget:
-  sessionLimitUsd: 5.00
-  warningThresholdUsd: 2.50
-
-fallbackOrder:
-  - nvidia
-  - groq
-  - anthropic
-  - openai
-  - deepseek
-  - ollama
+# Security & Sandboxing
+security:
+  allowShellExecution: true
+  autoApproveSafeCommands: false
+  blockedCommands:
+    - rm -rf /
+    - mkfs
+    - dd
 ```
 
 ### `.mcp.json`
-Configure Model Context Protocol servers in your workspace:
+Configure Model Context Protocol servers in your workspace root:
 
 ```json
 {
   "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./docs"]
+    },
     "github": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_xxxxxxxxxxxx"
       }
-    },
-    "postgres": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]
-    },
-    "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./docs"]
     }
   }
 }
@@ -614,57 +460,82 @@ Configure Model Context Protocol servers in your workspace:
 
 ---
 
+## 📦 Installation & Setup Guide
+
+### Option 1: Global NPM Install (Recommended)
+```bash
+npm install -g @codexgamerz/homogenous
+```
+
+### Option 2: Automated One-Line Installers
+**macOS / Linux**:
+```bash
+curl -fsSL https://raw.githubusercontent.com/CODExGAMERZ/homogenous/main/install.sh | bash
+```
+
+**Windows (PowerShell)**:
+```powershell
+irm https://raw.githubusercontent.com/CODExGAMERZ/homogenous/main/install.ps1 | iex
+```
+
+### Option 3: From Source
+```bash
+git clone https://github.com/CODExGAMERZ/homogenous.git
+cd homogenous
+npm install
+npm run build
+npm link
+```
+
+---
+
 ## 📁 Codebase Directory Structure
 
-```
-CLI Tool/
+```text
+.
 ├── bin/
-│   └── homogenous.ts               # CLI Entrypoint & Argument Parsing
+│   └── homogenous.ts               # CLI Entrypoint (REPL & Oneshot CLI router)
 ├── src/
-│   ├── index.ts                    # Root Programmatic SDK Entrypoint
-│   ├── agent/
-│   │   ├── AgentLoop.ts            # Autonomous Multi-Turn Agent Loop & Token Scrubber
-│   │   ├── ExecutionMode.ts        # Normal, Auto-Approve, and Plan Execution Modes
-│   │   ├── PlanningMode.ts         # Plan & Apply Blueprint Generator
-│   │   ├── SubAgent.ts             # SubAgent Orchestration Engine
-│   │   ├── systemPrompt.ts         # Base System Prompt & Environment Context
-│   │   └── tools/                  # 10 Core Autonomous Agent Tools
-│   │       ├── BaseTool.ts         # Base Tool Class & Runtime Schema Validator
-│   │       ├── fileTools.ts        # read_file, write_file, replace_file_content
+│   ├── index.ts                    # Public Programmatic SDK Exports
+│   ├── agent/                      # Autonomous Agent Execution Engine
+│   │   ├── AgentLoop.ts            # Multi-Turn Agent Loop & Delta Streaming
+│   │   ├── SubAgent.ts             # Isolated Sub-Agent Execution Engine
+│   │   ├── PlanningMode.ts         # Plan Formulation, Parsing & Step Execution
+│   │   ├── systemPrompt.ts         # Base System Prompt & Persistent Memory Injection
+│   │   └── tools/                  # 11 Native Workspace Tools
+│   │       ├── BaseTool.ts         # Base Tool Abstract Class & Zod Validation
+│   │       ├── fileTools.ts        # read_file, write_file, replace_file_content, list_dir
 │   │       ├── gitTools.ts         # git_status, git_diff, git_log
 │   │       ├── searchTools.ts      # grep_search, glob_files
-│   │       ├── shellTool.ts        # shell_execute (Sandboxed Allowlist)
-│   │       └── webTools.ts         # web_fetch (SSRF Protected)
-│   ├── cli/
-│   │   ├── index.ts                # Main Application Bootstrapper
-│   │   ├── repl.tsx                # Interactive Terminal REPL Controller
-│   │   ├── slash/                  # Slash Command Engine & Builtins
-│   │   │   ├── AutocompleteEngine.ts # 671B->1B Active Credential Suggestion Box
-│   │   │   ├── SlashCommandRegistry.ts # Command Dispatcher
-│   │   │   └── builtin/            # /model, /login, /logout, /mode, /memory, etc.
-│   │   └── ui/                     # Ink/React 60 FPS Terminal Components
-│   │       ├── App.tsx             # Main Reactive Terminal Viewport
-│   │       ├── ClaudeHeader.tsx    # Header Status Bar
-│   │       ├── MarkdownText.tsx    # Monospace Table & Markdown Parser
-│   │       ├── PromptInput.tsx     # Low-Latency Multi-Line Input Bar
-│   │       ├── ToolCard.tsx        # Tool Execution Status Visualizer
-│   │       └── themes/             # Color Palettes (Neon, Cyberpunk, Nord, etc.)
-│   ├── config/                     # Configuration Resolvers & Schemas
-│   ├── inference/                  # 11 Multi-Provider Inference Layer
-│   │   ├── keychain.ts             # Hardware AES-256-GCM Credential Vault
-│   │   ├── ProviderRegistry.ts     # Dynamic Routing & Local Server Prober
-│   │   ├── toolParser.ts           # JSON / XML / Llama 3 Tool Call Extractors
-│   │   └── providers/              # Anthropic, OpenAI, Nvidia, Groq, DeepSeek, etc.
-│   ├── mcp/                        # Model Context Protocol Client & Process Isolation
-│   ├── memory/                     # Persistent Project Memory & Turn Compactor
-│   ├── platform/                   # OS Shell Tokenizer, Paths, and VRAM Prober
+│   │       ├── shellTool.ts        # shell_execute (Zero-Trust Sandbox)
+│   │       ├── webTools.ts         # web_fetch (SSRF Protection & HTML Parser)
+│   │       └── subAgentTool.ts     # delegate_task (Sub-Agent Delegation)
+│   ├── cli/                        # Interactive Terminal Frontend
+│   │   ├── oneshot.ts              # Non-Interactive Oneshot Runner (--agent support)
+│   │   ├── slash/                  # Slash Command Subsystem
+│   │   │   ├── SlashCommandRegistry.ts
+│   │   │   ├── AutocompleteEngine.ts
+│   │   │   └── builtin/            # Built-in Slash Commands (/doctor, /theme, etc.)
+│   │   └── ui/                     # React Ink Terminal User Interface
+│   │       ├── App.tsx             # Main TUI Container & Dynamic Theme State
+│   │       ├── themes/             # 6-Theme Palette Engine & Context
+│   │       │   ├── ThemeDefinition.ts
+│   │       │   ├── ThemeContext.tsx
+│   │       │   ├── neon.ts
+│   │       │   └── themes.ts
+│   │       └── MarkdownText.tsx    # 60 FPS Tokenized Markdown & Table Renderer
+│   ├── config/                     # Configuration Schemas & .toolrc.yaml Resolver
+│   ├── inference/                  # 11 Multi-Provider Inference Drivers & Keychain
+│   ├── mcp/                        # Model Context Protocol Client & ResourceCache
+│   ├── memory/                     # Session & Persistent Memory (.agentmemory/facts.json)
+│   ├── platform/                   # Shell Tokenizer, Paths, and VRAM Prober
 │   ├── skills/                     # Modular Dynamic Skills Engine
 │   └── token-budget/               # Cost Ledger, Token Counter, and DiffEngine
 ├── test/
-│   └── unit/                       # 102 Automated Unit Tests
+│   └── unit/                       # 116 Automated Unit Tests Across 35 Test Suites
 ├── install.ps1                     # Automated Windows PowerShell Installer
 ├── install.sh                      # Automated macOS / Linux Bash Installer
-├── package.json                    # Package Manifest (v4.2.7)
+├── package.json                    # Package Manifest (v4.3.0)
 └── README.md                       # Comprehensive Documentation
 ```
 
@@ -672,7 +543,7 @@ CLI Tool/
 
 ## 💻 Programmatic API & SDK Usage
 
-In addition to the interactive CLI, `@codexgamerz/homogenous` can be imported as a TypeScript/JavaScript library into your own Node.js applications:
+You can import `@codexgamerz/homogenous` directly into your Node.js / TypeScript projects:
 
 ```typescript
 import {
@@ -680,49 +551,79 @@ import {
   ProviderRegistry,
   KeychainService,
   PersistentMemory,
-  SkillRegistry,
+  SubAgent,
 } from "@codexgamerz/homogenous";
 
-// 1. Initialize inference provider & credentials
+// 1. Resolve Provider
 const registry = ProviderRegistry.getInstance();
 const provider = registry.getProvider("anthropic");
 
-// 2. Instantiate persistent project memory
+// 2. Add Persistent Project Fact
 const memory = PersistentMemory.getInstance();
-await memory.addFact("Project uses Next.js 15 with TailwindCSS");
+memory.addFact("Always use strict TypeScript types without 'any'", "convention");
 
-// 3. Initialize Agent Loop
+// 3. Instantiate Autonomous Agent Loop
 const agent = new AgentLoop({
-  provider,
+  provider: provider!,
   model: "claude-3-7-sonnet-20250219",
-  systemPrompt: "You are an autonomous engineering assistant.",
+  autoApprove: true,
   workspaceRoot: process.cwd(),
 });
 
-// 4. Run task with live token streaming
-const result = await agent.run("Scaffold a dark-mode pricing component", {
-  onTextDelta: (delta) => process.stdout.write(delta),
-  onToolStart: (tool, input) => console.log(`\nExecuting: ${tool}...`),
-});
+// 4. Execute prompt with streaming deltas
+const finalResponse = await agent.run(
+  [{ role: "user", content: "Inspect src/index.ts and add missing docstrings" }],
+  (delta) => process.stdout.write(delta)
+);
 
-console.log("\nTask Complete!", result);
+console.log("\nFinished:", finalResponse);
 ```
 
 ---
 
-## 🧪 Test Suite & Verification
+## 🧪 Test Suite & Verification (116 Tests)
 
-Homogenous includes a comprehensive test harness covering every layer of the application:
+Homogenous is built with strict test-driven guarantees. Every layer of the system is covered by automated unit tests:
 
 ```bash
-# Run all 102 automated unit tests
+# Run the complete test suite (116 passing tests)
 npm test
 
-# Build production TypeScript bundle
-npm run build
+# Run strict TypeScript typechecking
+npm run typecheck
 
-# Install globally from source
-npm install -g .
+# Build production bundle
+npm run build
+```
+
+```text
+✔ WebFetchTool returns tool description and executes input schema
+✔ WebFetchTool blocks SSRF targets and invalid protocols
+✔ Zero-Key Invisibility: getActiveModels returns no cloud models when no keys exist
+✔ Autocomplete Zero-Key Invisibility: /model suggestions are empty when no keys exist
+✔ Slash Command /model displays zero-key guidance and /login instructions
+✔ Dynamic /login and /logout lifecycle invalidates caches
+✔ Slash Command /mode: switches between normal, auto, and plan modes
+✔ Slash Command /memory: supports list, add, remove, and clear aliases
+✔ Slash Command /mcp: supports /mcp reload
+✔ ShellExecuteTool: executes allowlisted commands under autoApprove
+✔ KeychainService resolves API keys for all providers via ConfigResolver
+✔ McpConfigResolver parses .mcp.json correctly
+✔ PersistentMemory adds, lists, and removes facts with metadata
+✔ Slash /doctor reports system diagnostics and daemon health
+✔ Theme Suite: all 6 themes are registered and have full color token definitions
+✔ Theme Suite: getActiveTheme resolves by ID but respects NO_COLOR strictly
+✔ Theme Suite: /theme slash command manages active themes
+✔ Budget Management: BudgetLedger reset clears records and counters
+✔ Budget Management: /budget set and /budget reset slash commands
+✔ DelegateTaskTool: validates tool definition and schema
+✔ DelegateTaskTool: recursion guard prevents delegate_task inside sub-agents
+✔ MCP Prompts & Resources: McpClientManager exposes methods
+✔ MCP ResourceCache: caches content and retrieves correctly
+...
+ℹ tests 116
+ℹ pass 116
+ℹ fail 0
 ```
 
 ---
@@ -734,8 +635,5 @@ Homogenous CLI is open-source software licensed under the [MIT License](LICENSE)
 ---
 
 <p align="center">
-  <b>✦ HOMOGENOUS CLI v4.2.7 — Code Faster. Deploy Safer. Local First. ✦</b>
+  <b>✦ HOMOGENOUS CLI v4.3.0 — Code Faster. Deploy Safer. Local First. ✦</b>
 </p>
-
-
-

@@ -1,6 +1,6 @@
 {
   "name": "@codexgamerz/homogenous",
-  "version": "4.2.7",
+  "version": "4.3.0",
   "description": "Enterprise-grade local-first CLI coding assistant powered by multi-provider LLM inference, dynamic skills, and MCP tools",
   "type": "module",
   "main": "./dist/src/index.js",
@@ -41,7 +41,7 @@
     "dev": "tsx bin/homogenous.ts chat",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx/esm --test test/**/*.test.ts",
+    "test": "node --import tsx/esm --import ./test/test_setup.ts --test test/**/*.test.ts",
     "prepare": "npm run build",
     "prepack": "npm run build",
     "prepublishOnly": "npm run test && npm run build"

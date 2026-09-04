@@ -1,6 +1,7 @@
 import React, { createContext, useContext } from "react";
 import type { ThemeDefinition } from "./ThemeDefinition.js";
 import { neonTheme, plainTheme } from "./neon.js";
+import { getThemeById } from "./themes.js";
 
 export function shouldDisableColors(): boolean {
   if (process.env.NO_COLOR !== undefined && process.env.NO_COLOR !== "0" && process.env.NO_COLOR !== "false") {
@@ -15,9 +16,13 @@ export function shouldDisableColors(): boolean {
   return false;
 }
 
-export function getActiveTheme(): ThemeDefinition {
+export function getActiveTheme(themeId?: string): ThemeDefinition {
   if (shouldDisableColors()) {
     return plainTheme;
+  }
+  if (themeId) {
+    const theme = getThemeById(themeId);
+    if (theme) return theme;
   }
   return neonTheme;
 }

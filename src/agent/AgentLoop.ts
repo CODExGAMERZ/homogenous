@@ -6,6 +6,7 @@ import { GrepSearchTool, GlobFilesTool } from "./tools/searchTools.js";
 import { GitStatusTool, GitDiffTool, GitLogTool } from "./tools/gitTools.js";
 import { ShellExecuteTool } from "./tools/shellTool.js";
 import { WebFetchTool } from "./tools/webTools.js";
+import { DelegateTaskTool } from "./tools/subAgentTool.js";
 import { ToolOutputTruncator } from "../token-budget/ToolOutputTruncator.js";
 import { BudgetLedger } from "../token-budget/BudgetLedger.js";
 import { SkillRegistry } from "../skills/SkillRegistry.js";
@@ -52,6 +53,7 @@ export interface AgentLoopOptions {
   maxTurns?: number;
   autoApprove?: boolean;
   workspaceRoot?: string;
+  disableSubAgent?: boolean;
   onToolStart?: (toolName: string, input: Record<string, unknown>) => void;
   onToolEnd?: (toolName: string, result: ToolResult) => void;
   onSkillTrigger?: (skillName: string, origin: string) => void;
@@ -87,6 +89,16 @@ export class AgentLoop {
       }),
       new WebFetchTool(),
     ];
+
+    if (!options.disableSubAgent) {
+      builtInTools.push(
+        new DelegateTaskTool({
+          provider: options.provider,
+          model: options.model,
+          workspaceRoot: options.workspaceRoot,
+        })
+      );
+    }
 
     this.toolsMap = new Map();
     for (const tool of builtInTools) {

@@ -23,6 +23,10 @@ export class BudgetLedger {
     return BudgetLedger.instance;
   }
 
+  public reset(): void {
+    this.records = [];
+  }
+
   public recordCall(params: {
     provider: string;
     model: string;

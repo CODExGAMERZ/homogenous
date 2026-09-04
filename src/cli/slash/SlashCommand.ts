@@ -17,6 +17,7 @@ export interface CommandContext {
   autoApproveEnabled?: boolean;
   setAutoApproveEnabled?: (enabled: boolean) => void;
   setFeed?: (feed: any[]) => void;
+  setTheme?: (themeId: string) => void;
 }
 
 export interface CommandResult {

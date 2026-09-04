@@ -21,19 +21,28 @@ export class SubAgent {
   /**
    * Spawns an isolated sub-agent execution with trimmed context for a focused sub-task.
    */
-  public async executeTask(goal: string, maxTurns: number = 8): Promise<SubAgentResult> {
-    console.log(chalk.bold.magenta(`\n🤖 Spawning Sub-Agent for sub-task: "${goal}"`));
+  public async executeTask(
+    goal: string,
+    maxTurns: number = 8,
+    options: { silent?: boolean; workspaceRoot?: string; autoApprove?: boolean } = {}
+  ): Promise<SubAgentResult> {
+    if (!options.silent) {
+      console.log(chalk.bold.magenta(`\n🤖 Spawning Sub-Agent for sub-task: "${goal}"`));
+    }
 
     const agentLoop = new AgentLoop({
       provider: this.provider,
       model: this.model,
       maxTurns,
+      disableSubAgent: true,
+      autoApprove: options.autoApprove ?? true,
+      workspaceRoot: options.workspaceRoot || process.cwd(),
     });
 
     const messages: Message[] = [
       {
         role: "system",
-        content: `${buildBaseSystemPrompt(process.cwd())}\n\nSpecialized Goal: You are running as an autonomous sub-agent. Focus strictly on achieving the assigned sub-task and report key findings concisely.`,
+        content: `${buildBaseSystemPrompt(options.workspaceRoot || process.cwd())}\n\nSpecialized Goal: You are running as an autonomous sub-agent. Focus strictly on achieving the assigned sub-task and report key findings concisely.`,
       },
       {
         role: "user",
@@ -43,7 +52,9 @@ export class SubAgent {
 
     try {
       const summary = await agentLoop.run(messages);
-      console.log(chalk.bold.magenta(`✔ Sub-Agent task completed.\n`));
+      if (!options.silent) {
+        console.log(chalk.bold.magenta(`✔ Sub-Agent task completed.\n`));
+      }
       return {
         goal,
         summary,

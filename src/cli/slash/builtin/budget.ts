@@ -31,17 +31,40 @@ export const budgetCommands: SlashCommand[] = [
   },
   {
     name: "budget",
-    description: "View token budget allocation and accounting report",
+    description: "Manage token budget limit, reset accounting metrics, or view breakdown",
     category: "session",
-    usage: "/budget [--report]",
+    usage: "/budget [set <amount> | reset | status | --report]",
     execute: async (args) => {
+      const sub = (args[0] || "").toLowerCase();
+
+      if (sub === "set") {
+        const rawAmount = args[1];
+        const parsed = parseFloat(rawAmount);
+        if (isNaN(parsed) || parsed <= 0) {
+          return {
+            output: "Usage: /budget set <amount>\nExample: /budget set 10.00",
+          };
+        }
+        ConfigResolver.getInstance().setSessionBudget(parsed);
+        return {
+          output: `✓ Session budget limit updated to $${parsed.toFixed(2)} USD.`,
+        };
+      }
+
+      if (sub === "reset") {
+        BudgetLedger.getInstance().reset();
+        return {
+          output: "✓ Token budget ledger and session cost counters have been reset to 0.",
+        };
+      }
+
       const ledger = BudgetLedger.getInstance();
       const s = ledger.getSummary();
       const cfg = ConfigResolver.getInstance().getConfig();
       const maxCost = cfg.maxSessionCostUSD || 5.0;
       const ratio = maxCost > 0 ? s.totalCostUSD / maxCost : 0;
       const bar = renderProgressBar(ratio, 12);
-      const isReport = args.includes("--report");
+      const isReport = args.includes("--report") || sub === "report";
 
       if (isReport) {
         return {

@@ -9,6 +9,8 @@ import { budgetCommands } from "./builtin/budget.js";
 import { diffCommands } from "./builtin/diff.js";
 import { metaCommands } from "./builtin/meta.js";
 import { copyCommand } from "./builtin/copy.js";
+import { doctorCommand } from "./builtin/doctor.js";
+import { themeCommand } from "./builtin/theme.js";
 import { UserDefinedCommandLoader } from "./userDefined.js";
 
 export class SlashCommandRegistry {
@@ -97,6 +99,8 @@ export class SlashCommandRegistry {
       ...diffCommands,
       ...metaCommands,
       copyCommand,
+      doctorCommand,
+      themeCommand,
     ];
 
     for (const cmd of allBuiltins) {

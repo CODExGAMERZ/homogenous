@@ -16,53 +16,18 @@ export type KeyProvider =
   | "mistral"
   | "together";
 
-function getMachineEncryptionKey(): Buffer {
-  let username = "";
-  try {
-    username = os.userInfo()?.username || "";
-  } catch {
-    username = "";
-  }
-  if (!username) {
-    username = process.env.USERNAME || process.env.USER || "default-user";
-  }
-  const home = os.homedir();
-  const hostname = os.hostname();
-  const seed = `${hostname}-${username}-${home}-homogenous-vault-key-v1`;
-  return crypto.createHash("sha256").update(seed).digest();
+let cachedVaultSeedBuffer: Buffer | null = null;
+let cachedStoredKeys: Record<string, string> | null = null;
+let unprocessedRawEntries: Record<string, string> = {};
+
+function getVaultSeedFilePath(): string {
+  const dir = getGlobalConfigDir();
+  return resolvePath(dir, ".vault_seed");
 }
 
-function encryptSecret(plaintext: string): string {
-  if (!plaintext) return "";
-  try {
-    const iv = crypto.randomBytes(12);
-    const cipher = crypto.createCipheriv("aes-256-gcm", getMachineEncryptionKey(), iv);
-    let encrypted = cipher.update(plaintext, "utf8", "hex");
-    encrypted += cipher.final("hex");
-    const tag = cipher.getAuthTag().toString("hex");
-    return `enc:v1:${iv.toString("hex")}:${tag}:${encrypted}`;
-  } catch {
-    return plaintext;
-  }
-}
-
-function decryptSecret(cipherText: string): string {
-  if (!cipherText || !cipherText.startsWith("enc:v1:")) {
-    return cipherText || "";
-  }
-  try {
-    const parts = cipherText.split(":");
-    const iv = Buffer.from(parts[2], "hex");
-    const tag = Buffer.from(parts[3], "hex");
-    const encrypted = parts[4];
-    const decipher = crypto.createDecipheriv("aes-256-gcm", getMachineEncryptionKey(), iv);
-    decipher.setAuthTag(tag);
-    let decrypted = decipher.update(encrypted, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
-  } catch {
-    return "";
-  }
+function getBackupKeysFilePath(): string {
+  const dir = getGlobalConfigDir();
+  return resolvePath(dir, "keys.bak.json");
 }
 
 function getKeysFilePath(): string {
@@ -77,40 +42,67 @@ function getKeysFilePath(): string {
   return resolvePath(dir, "keys.json");
 }
 
-let cachedStoredKeys: Record<string, string> | null = null;
-
-function loadStoredKeys(forceReload = false): Record<string, string> {
-  if (cachedStoredKeys && !forceReload) {
-    return cachedStoredKeys;
+/**
+ * Derives legacy encryption key candidates based on historical combinations of
+ * hostname, username, and homedir to decrypt credentials saved by older versions.
+ */
+function getLegacyMachineKeyCandidates(): Buffer[] {
+  const candidates: string[] = [];
+  let username = "";
+  try {
+    username = os.userInfo()?.username || "";
+  } catch {
+    username = "";
   }
-  const filePath = getKeysFilePath();
-  if (fs.existsSync(filePath)) {
-    try {
-      const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-      const decrypted: Record<string, string> = {};
-      for (const [k, v] of Object.entries(raw)) {
-        if (typeof v === "string") {
-          const dec = decryptSecret(v);
-          if (dec) {
-            decrypted[k] = dec;
-          }
-        }
+  const userEnv = process.env.USERNAME || process.env.USER || "default-user";
+  const usernames = Array.from(
+    new Set([username, userEnv, username.toLowerCase(), userEnv.toLowerCase()].filter(Boolean))
+  );
+  const home = os.homedir();
+  const homes = Array.from(
+    new Set([home, home.toLowerCase(), home.replace(/\\/g, "/"), home.replace(/\//g, "\\")].filter(Boolean))
+  );
+  const hostname = os.hostname();
+  const hostnames = Array.from(
+    new Set([
+      hostname,
+      hostname.toLowerCase(),
+      hostname.split(".")[0],
+      hostname.split(".")[0].toLowerCase(),
+    ].filter(Boolean))
+  );
+
+  for (const h of hostnames) {
+    for (const u of usernames) {
+      for (const hm of homes) {
+        candidates.push(`${h}-${u}-${hm}-homogenous-vault-key-v1`);
       }
-      cachedStoredKeys = decrypted;
-      return cachedStoredKeys;
-    } catch {
-      cachedStoredKeys = {};
-      return {};
     }
   }
-  cachedStoredKeys = {};
-  return {};
+
+  const hashes: Buffer[] = [];
+  const seen = new Set<string>();
+  for (const c of candidates) {
+    if (!seen.has(c)) {
+      seen.add(c);
+      hashes.push(crypto.createHash("sha256").update(c).digest());
+    }
+  }
+  return hashes;
 }
 
-function saveStoredKeys(keys: Record<string, string>): void {
-  cachedStoredKeys = { ...keys };
-  const filePath = getKeysFilePath();
-  const dir = path.dirname(filePath);
+/**
+ * Returns a permanent, machine-bound 256-bit encryption key.
+ * Persisted in ~/.homogenous/.vault_seed with 0600 permissions so it never
+ * fluctuates across Wi-Fi networks, VPNs, DHCP lease changes, or reboots.
+ */
+function getMachineVaultSeed(): Buffer {
+  if (cachedVaultSeedBuffer) {
+    return cachedVaultSeedBuffer;
+  }
+
+  const seedPath = getVaultSeedFilePath();
+  const dir = path.dirname(seedPath);
   if (!fs.existsSync(dir)) {
     try {
       fs.mkdirSync(dir, { recursive: true });
@@ -118,17 +110,256 @@ function saveStoredKeys(keys: Record<string, string>): void {
       // Non-fatal
     }
   }
-  const encryptedPayload: Record<string, string> = {};
+
+  // 1. If permanent seed file exists and contains valid hex, use it
+  if (fs.existsSync(seedPath)) {
+    try {
+      const existingHex = fs.readFileSync(seedPath, "utf-8").trim();
+      if (existingHex.length >= 32) {
+        cachedVaultSeedBuffer = crypto.createHash("sha256").update(existingHex).digest();
+        return cachedVaultSeedBuffer;
+      }
+    } catch {
+      // Fall through to regeneration
+    }
+  }
+
+  // 2. Generate a cryptographically secure 256-bit random seed
+  try {
+    const freshSeedHex = crypto.randomBytes(32).toString("hex");
+    fs.writeFileSync(seedPath, freshSeedHex, { encoding: "utf-8", mode: 0o600 });
+    try {
+      fs.chmodSync(seedPath, 0o600);
+    } catch {
+      // Non-fatal on Windows
+    }
+    cachedVaultSeedBuffer = crypto.createHash("sha256").update(freshSeedHex).digest();
+    return cachedVaultSeedBuffer;
+  } catch {
+    // Read-only filesystem fallback: use primary deterministic legacy candidate
+    const fallbacks = getLegacyMachineKeyCandidates();
+    cachedVaultSeedBuffer =
+      fallbacks[0] || crypto.createHash("sha256").update("homogenous-fallback-seed").digest();
+    return cachedVaultSeedBuffer;
+  }
+}
+
+/**
+ * Encrypts a plaintext secret using AES-256-GCM authenticated encryption with the permanent vault seed.
+ */
+function encryptSecret(plaintext: string): string {
+  if (!plaintext) return "";
+  try {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv("aes-256-gcm", getMachineVaultSeed(), iv);
+    let encrypted = cipher.update(plaintext, "utf8", "hex");
+    encrypted += cipher.final("hex");
+    const tag = cipher.getAuthTag().toString("hex");
+    return `enc:v1:${iv.toString("hex")}:${tag}:${encrypted}`;
+  } catch {
+    return plaintext;
+  }
+}
+
+function tryDecryptWithKey(cipherText: string, key: Buffer): string | null {
+  if (!cipherText || !cipherText.startsWith("enc:v1:")) {
+    return cipherText || "";
+  }
+  try {
+    const parts = cipherText.split(":");
+    if (parts.length < 5) return null;
+    const iv = Buffer.from(parts[2], "hex");
+    const tag = Buffer.from(parts[3], "hex");
+    const encrypted = parts[4];
+    const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(encrypted, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  } catch {
+    return null;
+  }
+}
+
+export interface DecryptResult {
+  plaintext: string;
+  usedLegacyKey: boolean;
+}
+
+/**
+ * Decrypts secret using multi-strategy fallback:
+ * 1. Permanent machine vault seed (.vault_seed)
+ * 2. Legacy key candidates (for existing vaults created prior to permanent seed)
+ */
+function decryptSecret(cipherText: string): DecryptResult {
+  if (!cipherText || !cipherText.startsWith("enc:v1:")) {
+    return { plaintext: cipherText || "", usedLegacyKey: false };
+  }
+
+  // 1. Try permanent vault seed
+  const primaryKey = getMachineVaultSeed();
+  const primaryDecrypted = tryDecryptWithKey(cipherText, primaryKey);
+  if (primaryDecrypted !== null) {
+    return { plaintext: primaryDecrypted, usedLegacyKey: false };
+  }
+
+  // 2. Try legacy candidates
+  const legacyCandidates = getLegacyMachineKeyCandidates();
+  for (const candidateKey of legacyCandidates) {
+    const legacyDecrypted = tryDecryptWithKey(cipherText, candidateKey);
+    if (legacyDecrypted !== null) {
+      return { plaintext: legacyDecrypted, usedLegacyKey: true };
+    }
+  }
+
+  return { plaintext: "", usedLegacyKey: false };
+}
+
+function loadStoredKeys(forceReload = false): Record<string, string> {
+  if (cachedStoredKeys && !forceReload) {
+    return cachedStoredKeys;
+  }
+
+  const filePath = getKeysFilePath();
+  const backupPath = getBackupKeysFilePath();
+  let raw: Record<string, unknown> | null = null;
+
+  // 1. Attempt to load primary keys.json
+  if (fs.existsSync(filePath)) {
+    try {
+      const fileContent = fs.readFileSync(filePath, "utf-8").trim();
+      if (fileContent.length > 0) {
+        raw = JSON.parse(fileContent);
+      }
+    } catch {
+      raw = null;
+    }
+  }
+
+  // 2. If primary file is missing, empty ({}), or corrupt, try restoring from backup
+  const isEmptyPrimary = !raw || (typeof raw === "object" && Object.keys(raw).length === 0);
+  if (isEmptyPrimary && fs.existsSync(backupPath)) {
+    try {
+      const backupContent = fs.readFileSync(backupPath, "utf-8").trim();
+      if (backupContent.length > 0) {
+        const backupJson = JSON.parse(backupContent);
+        if (backupJson && typeof backupJson === "object" && Object.keys(backupJson).length > 0) {
+          raw = backupJson;
+          // Auto-restore primary file from backup
+          try {
+            fs.writeFileSync(filePath, backupContent, { encoding: "utf-8", mode: 0o600 });
+          } catch {
+            // Non-fatal
+          }
+        }
+      }
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  if (!raw || typeof raw !== "object") {
+    cachedStoredKeys = {};
+    return {};
+  }
+
+  const decrypted: Record<string, string> = {};
+  unprocessedRawEntries = {};
+  let needsReEncrypt = false;
+
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v === "string") {
+      const { plaintext, usedLegacyKey } = decryptSecret(v);
+      if (plaintext) {
+        decrypted[k] = plaintext;
+        if (usedLegacyKey) {
+          needsReEncrypt = true;
+        }
+      } else {
+        // Ciphertext could not be decrypted - preserve raw value so it is never lost
+        unprocessedRawEntries[k] = v;
+      }
+    }
+  }
+
+  cachedStoredKeys = decrypted;
+
+  // Auto-migrate: If any keys were decrypted using legacy seeds, re-encrypt under permanent vault seed
+  if (needsReEncrypt && Object.keys(decrypted).length > 0) {
+    try {
+      saveStoredKeys(decrypted);
+    } catch {
+      // Non-fatal auto-migration
+    }
+  }
+
+  return cachedStoredKeys;
+}
+
+function saveStoredKeys(keys: Record<string, string>): void {
+  cachedStoredKeys = { ...keys };
+  const filePath = getKeysFilePath();
+  const backupPath = getBackupKeysFilePath();
+  const dir = path.dirname(filePath);
+
+  if (!fs.existsSync(dir)) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // Maintain backup before overwriting non-empty vault
+  if (fs.existsSync(filePath)) {
+    try {
+      const currentContent = fs.readFileSync(filePath, "utf-8").trim();
+      if (currentContent.length > 2 && currentContent !== "{}") {
+        fs.writeFileSync(backupPath, currentContent, { encoding: "utf-8", mode: 0o600 });
+      }
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // Build encrypted payload, preserving any untouched raw entries
+  const encryptedPayload: Record<string, string> = { ...unprocessedRawEntries };
   for (const [k, v] of Object.entries(keys)) {
     if (v) {
       encryptedPayload[k] = encryptSecret(v);
+    } else {
+      delete encryptedPayload[k];
+      delete unprocessedRawEntries[k];
     }
   }
-  fs.writeFileSync(filePath, JSON.stringify(encryptedPayload, null, 2), { encoding: "utf-8", mode: 0o600 });
+
+  // Atomic write to prevent file corruption on power loss or abrupt exit
+  const tmpFilePath = `${filePath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;
   try {
-    fs.chmodSync(filePath, 0o600);
+    fs.writeFileSync(tmpFilePath, JSON.stringify(encryptedPayload, null, 2), {
+      encoding: "utf-8",
+      mode: 0o600,
+    });
+    try {
+      fs.chmodSync(tmpFilePath, 0o600);
+    } catch {
+      // Ignore chmod errors on Windows
+    }
+    fs.renameSync(tmpFilePath, filePath);
   } catch {
-    // Ignore chmod errors on systems without POSIX permissions
+    // Direct write fallback
+    fs.writeFileSync(filePath, JSON.stringify(encryptedPayload, null, 2), {
+      encoding: "utf-8",
+      mode: 0o600,
+    });
+  } finally {
+    if (fs.existsSync(tmpFilePath)) {
+      try {
+        fs.unlinkSync(tmpFilePath);
+      } catch {
+        // Non-fatal
+      }
+    }
   }
 }
 
@@ -158,6 +389,15 @@ export class KeychainService {
       }
     }
     return this.keytarModule;
+  }
+
+  /**
+   * Clears the in-memory key cache and seed cache (useful for testing or full reload).
+   */
+  public static clearMemoryCache(): void {
+    cachedStoredKeys = null;
+    cachedVaultSeedBuffer = null;
+    unprocessedRawEntries = {};
   }
 
   /**
@@ -211,6 +451,13 @@ export class KeychainService {
   }
 
   /**
+   * Checks whether an API key is configured for a given provider.
+   */
+  public static hasKey(provider: KeyProvider): boolean {
+    return Boolean(this.getApiKey(provider));
+  }
+
+  /**
    * Securely saves an API key for a provider and hot-reloads active provider clients.
    */
   public static async setApiKey(provider: KeyProvider, apiKey: string): Promise<void> {
@@ -249,8 +496,9 @@ export class KeychainService {
 
     // 1. Remove from local keys file
     const stored = loadStoredKeys(true);
-    if (stored[provider]) {
+    if (stored[provider] || unprocessedRawEntries[provider]) {
       delete stored[provider];
+      delete unprocessedRawEntries[provider];
       saveStoredKeys(stored);
     }
 
@@ -295,3 +543,20 @@ export class KeychainService {
     return cloudProviders.filter((p) => !!this.getApiKey(p));
   }
 }
+
+/**
+ * Internal hooks exported for unit testing and diagnostic inspection.
+ */
+export const KeychainInternal = {
+  getMachineVaultSeed,
+  encryptSecret,
+  decryptSecret,
+  tryDecryptWithKey,
+  getVaultSeedFilePath,
+  getBackupKeysFilePath,
+  getKeysFilePath,
+  getLegacyMachineKeyCandidates,
+  loadStoredKeys,
+  saveStoredKeys,
+  cleanApiKey,
+};

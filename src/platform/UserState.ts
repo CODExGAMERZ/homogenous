@@ -132,4 +132,12 @@ export class UserStateService {
   public clearHistory(): void {
     this.saveState({ promptHistory: [] });
   }
+
+  public getTheme(): string {
+    return this.getState().theme || "neon";
+  }
+
+  public setTheme(theme: string): void {
+    this.saveState({ theme });
+  }
 }

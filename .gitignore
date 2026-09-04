@@ -1,33 +1,20 @@
-# Dependencies
+# ==============================================================================
+# Homogenous CLI - Git Ignore Configuration
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Dependencies & Package Managers
+# ------------------------------------------------------------------------------
 node_modules/
 .pnp/
 .pnp.js
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
 
-# Build Artifacts & Distribution Bundles
-dist/
-build/
-*.tsbuildinfo
-*.tgz
-*.zip
-*.tar.gz
-
-# Local Credentials & Environment Variables (DO NOT COMMIT)
-.env
-.env.local
-.env.*.local
-!.env.example
-.toolrc.yaml
-!.toolrc.example.yaml
-.mcp.json
-!.mcp.example.json
-keys.json
-.keys.json
-
-# Homogenous Local Runtime State & Memory
-.agentmemory/
-.homogenous/
-
-# Logs & Diagnostics
+# Package Manager Logs
 logs/
 *.log
 npm-debug.log*
@@ -36,7 +23,53 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Test Coverage & Temp Scratch Files
+# ------------------------------------------------------------------------------
+# Build Artifacts & Distribution Bundles
+# ------------------------------------------------------------------------------
+dist/
+build/
+out/
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+*.tgz
+*.zip
+*.tar.gz
+
+# ------------------------------------------------------------------------------
+# Security, Secrets & Environment Variables (NEVER COMMIT)
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.pfx
+*.p12
+id_rsa
+id_ed25519
+
+# ------------------------------------------------------------------------------
+# Homogenous Runtime State, Vaults & Local Configs
+# ------------------------------------------------------------------------------
+# Local user vaults and machine seeds
+.homogenous/
+keys.json
+keys.bak.json
+.keys.json
+.vault_seed
+*.vault_seed
+
+# Project-specific persistent memory and local overrides
+.agentmemory/
+.toolrc.yaml
+!.toolrc.example.yaml
+.mcp.json
+!.mcp.example.json
+
+# ------------------------------------------------------------------------------
+# Test Suites, Code Coverage & Scratchpads
+# ------------------------------------------------------------------------------
 coverage/
 .nyc_output/
 *.lcov
@@ -45,17 +78,55 @@ scratch/
 tmp/
 temp/
 
-# IDE & OS Metadata
+# ------------------------------------------------------------------------------
+# Operating System Metadata
+# ------------------------------------------------------------------------------
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
 Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# ------------------------------------------------------------------------------
+# IDEs & Editor Configuration
+# ------------------------------------------------------------------------------
+# JetBrains (WebStorm, IntelliJ IDEA)
 .idea/
+*.iml
+*.iws
+
+# Visual Studio Code (whitelist shared project config)
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+# Visual Studio & Windows Dev
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.swo
+*.swp
+
+# Backup files & temporary editor swap
+*.bak
+*.orig
+*.rej
+*.tmp

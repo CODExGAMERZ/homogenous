@@ -23,6 +23,10 @@ export class ConfigResolver {
     return this.config;
   }
 
+  public setSessionBudget(limitUSD: number): void {
+    this.config.maxSessionCostUSD = limitUSD;
+  }
+
   /**
    * Reloads configuration merging Global < Project < Stored Vault Keys < Environment Variables < CLI Overrides.
    */

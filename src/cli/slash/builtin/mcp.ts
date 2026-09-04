@@ -30,16 +30,67 @@ export const mcpCommands: SlashCommand[] = [
           output: `✓ Reloaded MCP configuration.\nConnected Servers: ${Object.keys(servers).length}\nActive MCP Tools: ${tools.length}`,
         };
       } else if (action === "prompts" || action === "prompt") {
-        if (entries.length === 0) return { output: "No MCP servers available." };
+        if (entries.length === 0) return { output: "No MCP servers configured in .mcp.json." };
         if (args.length >= 3) {
           const serverName = args[1];
           const promptName = args[2];
-          return { output: `[MCP Prompt Template /mcp:${serverName}:${promptName}]\nInvoking prompt template '${promptName}' from server '${serverName}'...` };
+          const rawArgs = args.slice(3);
+          const promptArgs: Record<string, string> = {};
+          for (const a of rawArgs) {
+            const [k, ...v] = a.split("=");
+            if (k && v.length > 0) {
+              promptArgs[k] = v.join("=");
+            }
+          }
+
+          try {
+            const promptData = await McpClientManager.getInstance().getPrompt(serverName, promptName, promptArgs);
+            const messages = (promptData?.messages || [])
+              .map((m: any) => {
+                const text = typeof m.content === "string" ? m.content : m.content?.text || JSON.stringify(m.content);
+                return `[${m.role}]:\n${text}`;
+              })
+              .join("\n\n");
+
+            return {
+              output: `✦ MCP Prompt Template [/mcp:${serverName}:${promptName}]\n${promptData?.description ? `Description: ${promptData.description}\n\n` : ""}${messages || "(No messages in prompt template)"}`,
+            };
+          } catch (err) {
+            return {
+              output: `Failed to fetch MCP prompt '${promptName}' from '${serverName}': ${(err as Error).message}`,
+            };
+          }
         }
-        return { output: "Configured MCP Prompts:\n  • /mcp:github:create_issue - Draft GitHub issue from session diff\n  • /mcp:git:commit_template - Format standard git commit message" };
+
+        const livePrompts = await McpClientManager.getInstance().listPrompts();
+        if (livePrompts.length === 0) {
+          return {
+            output: "No MCP prompt templates exposed by connected servers.\n(To use a prompt, configure an MCP server supporting prompts in .mcp.json)",
+          };
+        }
+
+        const promptList = livePrompts
+          .map((p) => `  • /mcp prompt ${p.serverName} ${p.name}${p.description ? ` - ${p.description}` : ""}`)
+          .join("\n");
+
+        return {
+          output: `Configured MCP Prompts:\n${promptList}\n\nInvoke a prompt with:\n  /mcp prompt <server> <prompt-name> [key=value...]`,
+        };
+      } else if (action === "resources") {
+        if (entries.length === 0) return { output: "No MCP servers configured in .mcp.json." };
+        const liveResources = await McpClientManager.getInstance().listResources();
+        if (liveResources.length === 0) {
+          return { output: "No MCP resources exposed by connected servers." };
+        }
+        const resList = liveResources
+          .map((r) => `  • [${r.serverName}] ${r.name} (${r.uri})${r.description ? ` - ${r.description}` : ""}`)
+          .join("\n");
+        return {
+          output: `Available MCP Resources:\n${resList}`,
+        };
       }
 
-      return { output: "Usage: /mcp [list|reload|prompts|prompt <server> <prompt-name>]" };
+      return { output: "Usage: /mcp [list | reload | prompts | prompt <server> <name> [key=val] | resources]" };
     },
   },
 ];

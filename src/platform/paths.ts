@@ -102,6 +102,10 @@ export function getGlobalConfigDir(): string {
   if (process.env.HOMOGENOUS_HOME) {
     return resolvePath(process.env.HOMOGENOUS_HOME, ".homogenous");
   }
+  if (process.env.HOMOGENOUS_TEST_ENV || process.env.NODE_TEST_CONTEXT) {
+    const fallbackTestDir = path.join(os.tmpdir(), `homogenous-test-fallback-${process.pid}`, ".homogenous");
+    return normalizePath(fallbackTestDir);
+  }
   return resolvePath(os.homedir(), ".homogenous");
 }
 
@@ -124,11 +128,15 @@ export function isSensitiveSecurityPath(filePath: string): boolean {
   if (!filePath) return false;
   const normalized = normalizePath(filePath).toLowerCase();
 
-  // 1. Homogenous encrypted API key vault
+  // 1. Homogenous encrypted API key vault and permanent vault seed
   if (
     normalized === ".homogenous/keys.json" ||
     normalized.endsWith("/.homogenous/keys.json") ||
-    (normalized.endsWith("/keys.json") && normalized.includes(".homogenous"))
+    (normalized.endsWith("/keys.json") && normalized.includes(".homogenous")) ||
+    normalized.includes(".homogenous/keys.bak.json") ||
+    normalized.includes(".homogenous/.vault_seed") ||
+    normalized.endsWith("/.vault_seed") ||
+    normalized === ".vault_seed"
   ) {
     return true;
   }

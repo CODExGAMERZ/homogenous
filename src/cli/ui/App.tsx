@@ -5,7 +5,7 @@ import { PromptInput } from "./PromptInput.js";
 import { ClaudeHeader } from "./ClaudeHeader.js";
 import { ToolCard } from "./ToolCard.js";
 import { MarkdownText } from "./MarkdownText.js";
-import { ThemeProvider, useTheme } from "./themes/ThemeContext.js";
+import { ThemeProvider, useTheme, getActiveTheme } from "./themes/ThemeContext.js";
 import type { InferenceProvider } from "../../inference/InferenceProvider.js";
 import { ProviderRegistry } from "../../inference/ProviderRegistry.js";
 import { SessionMemory } from "../../memory/SessionMemory.js";
@@ -24,6 +24,10 @@ export interface AppProps {
   initialModel?: string;
   workspacePath?: string;
   gitBranch?: string;
+}
+
+interface AppContentProps extends AppProps {
+  onSetTheme?: (themeId: string) => void;
 }
 
 export interface FeedItem {
@@ -71,13 +75,14 @@ export function getShortcutTarget(input: string, key: any): string | null {
   return null;
 }
 
-const AppContent: React.FC<AppProps> = ({
+const AppContent: React.FC<AppContentProps> = ({
   provider: propProvider,
   initialProvider,
   model: propModel,
   initialModel = "claude-3-5-sonnet-20241022",
   workspacePath = process.cwd(),
   gitBranch: initialGitBranch = "main",
+  onSetTheme,
 }) => {
   const { exit } = useApp();
   const theme = useTheme();
@@ -227,6 +232,7 @@ const AppContent: React.FC<AppProps> = ({
           else UserStateService.getInstance().setExecutionMode("normal");
         },
         setFeed: (newFeed) => setFeed(newFeed),
+        setTheme: onSetTheme,
       };
 
       const result = await SlashCommandRegistry.getInstance().dispatch(slashTarget, commandContext);
@@ -286,6 +292,8 @@ const AppContent: React.FC<AppProps> = ({
         if (enabled) UserStateService.getInstance().setExecutionMode("auto");
         else UserStateService.getInstance().setExecutionMode("normal");
       },
+      setFeed: (newFeed) => setFeed(newFeed),
+      setTheme: onSetTheme,
     };
 
     if (trimmed.startsWith("/")) {
@@ -589,8 +597,19 @@ const AppContent: React.FC<AppProps> = ({
   );
 };
 
-export const App: React.FC<AppProps> = (props) => (
-  <ThemeProvider>
-    <AppContent {...props} />
-  </ThemeProvider>
-);
+export const App: React.FC<AppProps> = (props) => {
+  const [themeId, setThemeId] = useState<string>(() => UserStateService.getInstance().getTheme());
+  const activeTheme = getActiveTheme(themeId);
+
+  return (
+    <ThemeProvider overrideTheme={activeTheme}>
+      <AppContent
+        {...props}
+        onSetTheme={(newTheme) => {
+          UserStateService.getInstance().setTheme(newTheme);
+          setThemeId(newTheme);
+        }}
+      />
+    </ThemeProvider>
+  );
+};

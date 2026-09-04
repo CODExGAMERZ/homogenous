@@ -15,7 +15,7 @@ import { McpConfigResolver } from "../src/mcp/config.js";
 import { McpClientManager } from "../src/mcp/McpClientManager.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-let pkgVersion = "4.2.7";
+let pkgVersion = "4.3.0";
 try {
   const pkgPath = path.resolve(__dirname, "../../package.json");
   if (fs.existsSync(pkgPath)) {
@@ -62,9 +62,14 @@ yargs(hideBin(process.argv))
           type: "string",
           alias: "m",
           describe: "Model identifier override",
+        })
+        .option("agent", {
+          type: "boolean",
+          alias: "a",
+          describe: "Run in autonomous agent mode with workspace tools",
         }),
     async (argv) => {
-      await runOneshot(argv.prompt as string, { model: argv.model });
+      await runOneshot(argv.prompt as string, { model: argv.model, agent: argv.agent });
     }
   )
   .command(
