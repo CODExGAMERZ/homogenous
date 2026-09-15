@@ -189,6 +189,8 @@ export class AutocompleteEngine {
           { name: "list", desc: "List connected Model Context Protocol servers & tools" },
           { name: "reload", desc: "Hot-reload .mcp.json server configurations" },
           { name: "prompts", desc: "List registered MCP prompt templates" },
+          { name: "prompt", desc: "Get or invoke an MCP prompt template (/mcp prompt <name>)" },
+          { name: "resources", desc: "List registered MCP server resources" },
         ];
         return mcpOpts
           .filter((m) => fuzzyScore(m.name, argTerm) >= 0)

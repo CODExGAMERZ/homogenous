@@ -54,6 +54,7 @@ export interface AgentLoopOptions {
   autoApprove?: boolean;
   workspaceRoot?: string;
   disableSubAgent?: boolean;
+  silent?: boolean;
   onToolStart?: (toolName: string, input: Record<string, unknown>) => void;
   onToolEnd?: (toolName: string, result: ToolResult) => void;
   onSkillTrigger?: (skillName: string, origin: string) => void;
@@ -72,17 +73,18 @@ export class AgentLoop {
     this.model = options.model;
     this.maxTurns = options.maxTurns || 15;
 
-    // Register built-in tools
+    // Register built-in tools with workspaceRoot propagation
+    const wsRootOpt = { workspaceRoot: options.workspaceRoot };
     const builtInTools: BaseTool[] = [
-      new ReadFileTool(),
-      new WriteFileTool(),
-      new ReplaceFileContentTool(),
-      new ListDirTool(),
-      new GrepSearchTool(),
-      new GlobFilesTool(),
-      new GitStatusTool(),
-      new GitDiffTool(),
-      new GitLogTool(),
+      new ReadFileTool(wsRootOpt),
+      new WriteFileTool(wsRootOpt),
+      new ReplaceFileContentTool(wsRootOpt),
+      new ListDirTool(wsRootOpt),
+      new GrepSearchTool(wsRootOpt),
+      new GlobFilesTool(wsRootOpt),
+      new GitStatusTool(wsRootOpt),
+      new GitDiffTool(wsRootOpt),
+      new GitLogTool(wsRootOpt),
       new ShellExecuteTool({
         autoApprove: options.autoApprove,
         workspaceRoot: options.workspaceRoot,
@@ -138,7 +140,7 @@ export class AgentLoop {
       if (matchedSkill) {
         if (this.options.onSkillTrigger) {
           this.options.onSkillTrigger(matchedSkill.metadata.name, matchedSkill.origin || "global");
-        } else {
+        } else if (!this.options.silent) {
           console.log(chalk.bold.magenta(`⚡ Dynamic Skill Triggered: '${matchedSkill.metadata.name}' (${matchedSkill.origin || "global"})`));
         }
         // Isolate project-local skills: inject as user-context boundary; keep system prompt only for trusted bundled/global skills
@@ -253,7 +255,7 @@ export class AgentLoop {
 
         if (this.options.onToolStart) {
           this.options.onToolStart(name, input as Record<string, unknown>);
-        } else {
+        } else if (!this.options.silent) {
           console.log(chalk.cyan(`  ⚙ Tool Executing: ${name}`));
         }
 

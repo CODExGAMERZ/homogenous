@@ -10,7 +10,7 @@ export class DelegateTaskTool extends BaseTool {
 
   readonly zodSchema = z.object({
     task: z.string().min(1, "Task description is required"),
-    maxTurns: z.number().int().positive().optional().default(8),
+    maxTurns: z.coerce.number().int().positive().optional().default(8),
   });
 
   readonly inputSchema = {

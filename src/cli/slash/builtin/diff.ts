@@ -1,6 +1,7 @@
 import type { SlashCommand } from "../SlashCommand.js";
 import { DiffEngine } from "../../../token-budget/DiffEngine.js";
 import { AgentLoop } from "../../../agent/AgentLoop.js";
+import { CodeBlockStore } from "../../../utils/CodeBlockStore.js";
 
 export const diffCommands: SlashCommand[] = [
   {
@@ -43,6 +44,9 @@ export const diffCommands: SlashCommand[] = [
         workspaceRoot: ctx.workspacePath,
       });
       const resultText = await agent.run(ctx.sessionMemory.getMessages());
+      if (resultText) {
+        CodeBlockStore.getInstance().addBlocksFromMarkdown(resultText);
+      }
 
       return {
         output: `✓ Pending plan approved & applied.\n\nAgent Execution Result:\n${resultText}`,

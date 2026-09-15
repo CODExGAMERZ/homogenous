@@ -5,14 +5,18 @@ import { BaseTool, type ToolResult } from "./BaseTool.js";
 import { resolveWorkspacePath, isSensitiveSecurityPath } from "../../platform/paths.js";
 import { DiffEngine } from "../../token-budget/DiffEngine.js";
 
+export interface FileToolOptions {
+  workspaceRoot?: string;
+}
+
 export class ReadFileTool extends BaseTool {
   readonly name = "read_file";
   readonly description =
     "Read the contents of a file from the workspace. Supports specifying StartLine and EndLine (1-indexed).";
   readonly zodSchema = z.object({
     path: z.string().min(1, "Path must not be empty"),
-    startLine: z.number().int().positive().optional(),
-    endLine: z.number().int().positive().optional(),
+    startLine: z.coerce.number().int().positive().optional(),
+    endLine: z.coerce.number().int().positive().optional(),
   });
   readonly inputSchema = {
     type: "object",
@@ -33,13 +37,20 @@ export class ReadFileTool extends BaseTool {
     required: ["path"],
   };
 
+  public workspaceRoot: string;
+
+  constructor(options: FileToolOptions = {}) {
+    super();
+    this.workspaceRoot = options.workspaceRoot || process.cwd();
+  }
+
   async execute(input: Record<string, unknown>): Promise<ToolResult> {
     const filePath = input.path as string;
     const startLine = (input.startLine as number) || 1;
     const endLine = input.endLine as number | undefined;
 
     try {
-      const absPath = resolveWorkspacePath(process.cwd(), filePath);
+      const absPath = resolveWorkspacePath(this.workspaceRoot, filePath);
       if (isSensitiveSecurityPath(absPath) || isSensitiveSecurityPath(filePath)) {
         return {
           ok: false,
@@ -103,12 +114,19 @@ export class WriteFileTool extends BaseTool {
     required: ["path", "content"],
   };
 
+  public workspaceRoot: string;
+
+  constructor(options: FileToolOptions = {}) {
+    super();
+    this.workspaceRoot = options.workspaceRoot || process.cwd();
+  }
+
   async execute(input: Record<string, unknown>): Promise<ToolResult> {
     const filePath = input.path as string;
     const content = input.content as string;
 
     try {
-      const absPath = resolveWorkspacePath(process.cwd(), filePath);
+      const absPath = resolveWorkspacePath(this.workspaceRoot, filePath);
       if (isSensitiveSecurityPath(absPath) || isSensitiveSecurityPath(filePath)) {
         return {
           ok: false,
@@ -168,13 +186,20 @@ export class ReplaceFileContentTool extends BaseTool {
     required: ["path", "targetContent", "replacementContent"],
   };
 
+  public workspaceRoot: string;
+
+  constructor(options: FileToolOptions = {}) {
+    super();
+    this.workspaceRoot = options.workspaceRoot || process.cwd();
+  }
+
   async execute(input: Record<string, unknown>): Promise<ToolResult> {
     const filePath = input.path as string;
     const targetContent = input.targetContent as string;
     const replacementContent = input.replacementContent as string;
 
     try {
-      const absPath = resolveWorkspacePath(process.cwd(), filePath);
+      const absPath = resolveWorkspacePath(this.workspaceRoot, filePath);
       if (isSensitiveSecurityPath(absPath) || isSensitiveSecurityPath(filePath)) {
         return {
           ok: false,
@@ -191,7 +216,24 @@ export class ReplaceFileContentTool extends BaseTool {
       }
 
       const fileContent = fs.readFileSync(absPath, "utf-8");
-      if (!fileContent.includes(targetContent)) {
+
+      // Robust cross-platform CRLF / LF line ending matching
+      let matchedTarget: string | null = null;
+      if (fileContent.includes(targetContent)) {
+        matchedTarget = targetContent;
+      } else {
+        const crlfTarget = targetContent.replace(/\r?\n/g, "\r\n");
+        if (fileContent.includes(crlfTarget)) {
+          matchedTarget = crlfTarget;
+        } else {
+          const lfTarget = targetContent.replace(/\r\n/g, "\n");
+          if (fileContent.includes(lfTarget)) {
+            matchedTarget = lfTarget;
+          }
+        }
+      }
+
+      if (!matchedTarget) {
         return {
           ok: false,
           isError: true,
@@ -199,8 +241,14 @@ export class ReplaceFileContentTool extends BaseTool {
         };
       }
 
+      // Preserve the file's dominant line ending convention for the replacement
+      const fileHasCrlf = fileContent.includes("\r\n");
+      const normalizedReplacement = fileHasCrlf
+        ? replacementContent.replace(/\r?\n/g, "\r\n")
+        : replacementContent.replace(/\r\n/g, "\n");
+
       // Use callback replacement to avoid special $1, $2, $$ pattern expansion bugs in JS string replace
-      const newContent = fileContent.replace(targetContent, () => replacementContent);
+      const newContent = fileContent.replace(matchedTarget, () => normalizedReplacement);
 
       // Record edit snapshot in DiffEngine undo stack
       DiffEngine.recordFileEdit(filePath, newContent);
@@ -228,7 +276,7 @@ export class ListDirTool extends BaseTool {
   readonly zodSchema = z.object({
     path: z.string().optional().default("."),
     recursive: z.boolean().optional().default(false),
-    maxDepth: z.number().int().min(1).max(10).optional().default(2),
+    maxDepth: z.coerce.number().int().min(1).max(10).optional().default(2),
   });
   readonly inputSchema = {
     type: "object",
@@ -248,13 +296,20 @@ export class ListDirTool extends BaseTool {
     },
   };
 
+  public workspaceRoot: string;
+
+  constructor(options: FileToolOptions = {}) {
+    super();
+    this.workspaceRoot = options.workspaceRoot || process.cwd();
+  }
+
   async execute(input: Record<string, unknown>): Promise<ToolResult> {
     const dirRelPath = (input.path as string | undefined) || ".";
     const recursive = Boolean(input.recursive);
     const maxDepth = typeof input.maxDepth === "number" ? input.maxDepth : 2;
 
     try {
-      const absPath = resolveWorkspacePath(process.cwd(), dirRelPath);
+      const absPath = resolveWorkspacePath(this.workspaceRoot, dirRelPath);
       if (isSensitiveSecurityPath(absPath) || isSensitiveSecurityPath(dirRelPath)) {
         return {
           ok: false,

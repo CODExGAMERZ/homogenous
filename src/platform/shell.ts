@@ -345,9 +345,10 @@ export function execFileDirect(
  */
 export async function getGitBranch(cwd: string = process.cwd()): Promise<string> {
   try {
-    const res = await execFileDirect("git", ["rev-parse", "--abbrev-ref", "HEAD", "--"], { cwd, timeoutMs: 1500 });
+    const res = await execFileDirect("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd, timeoutMs: 1500 });
     if (res.exitCode === 0 && res.stdout.trim()) {
-      return res.stdout.trim();
+      const branch = res.stdout.trim().split(/\r?\n/)[0];
+      if (branch) return branch;
     }
   } catch {
     // Git not available

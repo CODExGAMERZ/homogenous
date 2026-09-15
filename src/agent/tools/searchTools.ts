@@ -5,6 +5,10 @@ import { BaseTool, type ToolResult } from "./BaseTool.js";
 import { execFileDirect } from "../../platform/shell.js";
 import { resolveWorkspacePath, isSensitiveSecurityPath } from "../../platform/paths.js";
 
+export interface SearchToolOptions {
+  workspaceRoot?: string;
+}
+
 export class GrepSearchTool extends BaseTool {
   readonly name = "grep_search";
   readonly description =
@@ -28,12 +32,19 @@ export class GrepSearchTool extends BaseTool {
     required: ["query"],
   };
 
+  public workspaceRoot: string;
+
+  constructor(options: SearchToolOptions = {}) {
+    super();
+    this.workspaceRoot = options.workspaceRoot || process.cwd();
+  }
+
   private jsGrepFallback(query: string, searchDir: string): string[] {
     const results: string[] = [];
     const lowerQuery = query.toLowerCase();
     const visited = new Set<string>();
 
-    function walk(dir: string, depth: number) {
+    const walk = (dir: string, depth: number) => {
       if (depth > 15 || results.length >= 50) return;
       let real: string;
       try {
@@ -67,7 +78,7 @@ export class GrepSearchTool extends BaseTool {
             const lines = content.split(/\r?\n/);
             lines.forEach((line, idx) => {
               if (line.toLowerCase().includes(lowerQuery) && results.length < 50) {
-                const rel = path.relative(process.cwd(), fullPath).replace(/\\/g, "/");
+                const rel = path.relative(this.workspaceRoot, fullPath).replace(/\\/g, "/");
                 results.push(`${rel}:${idx + 1}:${line.slice(0, 200)}`);
               }
             });
@@ -76,7 +87,7 @@ export class GrepSearchTool extends BaseTool {
           }
         }
       }
-    }
+    };
 
     walk(searchDir, 0);
     return results;
@@ -88,7 +99,7 @@ export class GrepSearchTool extends BaseTool {
 
     let absSearchDir: string;
     try {
-      absSearchDir = resolveWorkspacePath(process.cwd(), searchPath);
+      absSearchDir = resolveWorkspacePath(this.workspaceRoot, searchPath);
       if (isSensitiveSecurityPath(absSearchDir)) {
         return {
           ok: false,
@@ -107,7 +118,7 @@ export class GrepSearchTool extends BaseTool {
     try {
       // Direct argv execution terminates options with '--' to avoid argument injection / option confusion
       const args = ["-nI", "--max-columns", "200", "-e", query, "--", absSearchDir];
-      const result = await execFileDirect("rg", args, { timeoutMs: 15000 });
+      const result = await execFileDirect("rg", args, { cwd: this.workspaceRoot, timeoutMs: 15000 });
 
       if (result.exitCode === 0 && result.stdout.trim()) {
         const filteredLines = result.stdout
@@ -116,7 +127,8 @@ export class GrepSearchTool extends BaseTool {
           .filter((line) => {
             const filePathPart = line.split(":")[0];
             return !isSensitiveSecurityPath(filePathPart);
-          });
+          })
+          .map((line) => line.replace(/\\/g, "/"));
 
         if (filteredLines.length > 0) {
           return {
@@ -126,7 +138,12 @@ export class GrepSearchTool extends BaseTool {
         }
       }
 
-      if (result.exitCode === 1) {
+      if (
+        result.exitCode === 1 &&
+        !result.stderr.includes("Process execution error") &&
+        !result.stderr.includes("ENOENT") &&
+        !result.stderr.includes("not recognized")
+      ) {
         return {
           ok: true,
           content: `No matches found for query '${query}'.`,
@@ -257,6 +274,13 @@ export class GlobFilesTool extends BaseTool {
     },
   };
 
+  public workspaceRoot: string;
+
+  constructor(options: SearchToolOptions = {}) {
+    super();
+    this.workspaceRoot = options.workspaceRoot || process.cwd();
+  }
+
   async execute(input: Record<string, unknown>): Promise<ToolResult> {
     const rawPattern = (input.pattern as string | undefined) || "*";
     const pattern = rawPattern.trim() || "*";
@@ -268,7 +292,7 @@ export class GlobFilesTool extends BaseTool {
       const matches: string[] = [];
       const visitedRealPaths = new Set<string>();
 
-      function walkDir(dir: string, depth: number = 0) {
+      const walkDir = (dir: string, depth: number = 0) => {
         if (matches.length > 200 || depth > 20) return;
 
         let realPath: string;
@@ -298,7 +322,7 @@ export class GlobFilesTool extends BaseTool {
           if (entry.isDirectory()) {
             walkDir(fullPath, depth + 1);
           } else if (entry.isFile()) {
-            const relPath = path.relative(process.cwd(), fullPath).replace(/\\/g, "/");
+            const relPath = path.relative(this.workspaceRoot, fullPath).replace(/\\/g, "/");
             const fileName = entry.name;
 
             const matchesPattern =
@@ -311,9 +335,9 @@ export class GlobFilesTool extends BaseTool {
             }
           }
         }
-      }
+      };
 
-      walkDir(process.cwd(), 0);
+      walkDir(this.workspaceRoot, 0);
 
       if (matches.length === 0) {
         return {

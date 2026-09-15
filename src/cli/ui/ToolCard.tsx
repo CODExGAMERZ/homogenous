@@ -23,6 +23,7 @@ export const ToolCard: React.FC<ToolCardProps> = ({
   if (input.path) detail = `file: ${input.path}`;
   else if (input.command) detail = `cmd: ${input.command}`;
   else if (input.query) detail = `query: '${input.query}'`;
+  else if (input.task) detail = `task: '${String(input.task).slice(0, 60)}'`;
   else detail = JSON.stringify(input);
 
   return (

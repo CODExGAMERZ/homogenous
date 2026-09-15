@@ -15,7 +15,7 @@ import { McpConfigResolver } from "../src/mcp/config.js";
 import { McpClientManager } from "../src/mcp/McpClientManager.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-let pkgVersion = "4.3.0";
+let pkgVersion = "4.3.1";
 try {
   const pkgPath = path.resolve(__dirname, "../../package.json");
   if (fs.existsSync(pkgPath)) {
@@ -78,6 +78,18 @@ yargs(hideBin(process.argv))
     {},
     async () => {
       await runInit();
+    }
+  )
+  .command(
+    "doctor",
+    "Diagnose system environment, LLM daemons, GPU VRAM, and workspace health",
+    {},
+    async () => {
+      const { doctorCommand } = await import("../src/cli/slash/builtin/doctor.js");
+      const res = await doctorCommand.execute([], {
+        workspacePath: process.cwd(),
+      } as any);
+      console.log(res.output);
     }
   )
   .command(
@@ -186,17 +198,25 @@ yargs(hideBin(process.argv))
     }
   )
   .command(
-    "mcp <action>",
+    "mcp <action> [args..]",
     "Manage configured Model Context Protocol (MCP) servers",
     (y) =>
-      y.positional("action", {
-        type: "string",
-        describe: "Action: list or reload",
-        choices: ["list", "reload"],
-        demandOption: true,
-      }),
+      y
+        .positional("action", {
+          type: "string",
+          describe: "Action: list, reload, prompts, prompt, or resources",
+          choices: ["list", "reload", "prompts", "prompt", "resources"],
+          demandOption: true,
+        })
+        .positional("args", {
+          type: "string",
+          array: true,
+          describe: "Optional arguments for prompt invocation",
+        }),
     async (argv) => {
       const action = (argv.action as string).toLowerCase();
+      const argsArr = (argv.args as string[]) || [];
+
       if (action === "list") {
         const servers = McpConfigResolver.loadMcpConfig();
         console.log(chalk.bold.cyan("\n--- Configured MCP Servers (.mcp.json) ---"));
@@ -215,6 +235,13 @@ yargs(hideBin(process.argv))
         const servers = McpConfigResolver.loadMcpConfig();
         const tools = await McpClientManager.getInstance().reloadServers();
         console.log(chalk.green(`✓ Reloaded MCP configuration (${Object.keys(servers).length} servers, ${tools.length} active tools)`));
+      } else if (action === "prompts" || action === "prompt" || action === "resources") {
+        const { mcpCommands } = await import("../src/cli/slash/builtin/mcp.js");
+        const mcpCmd = mcpCommands[0];
+        const res = await mcpCmd.execute([action, ...argsArr], {
+          workspacePath: process.cwd(),
+        } as any);
+        console.log(res.output);
       }
     }
   )

@@ -55,6 +55,26 @@ export class MockProvider implements InferenceProvider {
 
     // Support simulated tool invocation if plan execution test requests file write
     const hasToolResults = request.messages.some(m => m.role === "user" && Array.isArray(m.content) && m.content.some(b => b.type === "tool_result"));
+    if (request.tools && request.tools.some(t => t.name === "delegate_task") && promptText.toLowerCase().includes("delegate") && !hasToolResults) {
+      return {
+        content: [
+          {
+            type: "tool_use",
+            toolCall: {
+              id: "mock_subagent_call_1",
+              name: "delegate_task",
+              input: {
+                task: "Perform sub-agent analysis on workspace files",
+                maxTurns: 3,
+              },
+            },
+          },
+        ],
+        stopReason: "tool_use",
+        usage: { inputTokens: 100, outputTokens: 50 },
+      };
+    }
+
     if (request.tools && request.tools.some(t => t.name === "write_file") && promptText.includes("test_apply_plan.txt") && !hasToolResults) {
       const match = promptText.match(/(?:write|create)\s+([^\s\n]+\.txt)/i) || [null, "test_apply_plan.txt"];
       const filePath = match[1];

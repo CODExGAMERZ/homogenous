@@ -16,6 +16,7 @@ import type { CommandContext, PendingPlan } from "../slash/SlashCommand.js";
 import { getGitBranch } from "../../platform/shell.js";
 import { buildBaseSystemPrompt } from "../../agent/systemPrompt.js";
 import { UserStateService } from "../../platform/UserState.js";
+import { CodeBlockStore } from "../../utils/CodeBlockStore.js";
 
 export interface AppProps {
   provider?: InferenceProvider;
@@ -418,6 +419,7 @@ const AppContent: React.FC<AppContentProps> = ({
 
         setStreamingText("");
         if (answer.trim()) {
+          CodeBlockStore.getInstance().addBlocksFromMarkdown(answer);
           setFeed((prev) => [
             ...prev,
             {

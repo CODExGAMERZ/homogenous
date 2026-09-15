@@ -2,6 +2,10 @@ import { z } from "zod";
 import { BaseTool, type ToolResult } from "./BaseTool.js";
 import { execFileDirect } from "../../platform/shell.js";
 
+export interface GitToolOptions {
+  workspaceRoot?: string;
+}
+
 export class GitStatusTool extends BaseTool {
   readonly name = "git_status";
   readonly description = "Get repository working directory status (modified files, staged changes, untracked files).";
@@ -11,8 +15,15 @@ export class GitStatusTool extends BaseTool {
     properties: {},
   };
 
+  public workspaceRoot: string;
+
+  constructor(options: GitToolOptions = {}) {
+    super();
+    this.workspaceRoot = options.workspaceRoot || process.cwd();
+  }
+
   async execute(_input: Record<string, unknown>): Promise<ToolResult> {
-    const res = await execFileDirect("git", ["status", "--short", "--"], { timeoutMs: 10000 });
+    const res = await execFileDirect("git", ["status", "--short", "--"], { cwd: this.workspaceRoot, timeoutMs: 10000 });
     if (res.exitCode !== 0) {
       if (res.stderr.includes("not a git repository")) {
         return { ok: true, content: "Notice: Current workspace is not a git repository." };
@@ -42,10 +53,17 @@ export class GitDiffTool extends BaseTool {
     },
   };
 
+  public workspaceRoot: string;
+
+  constructor(options: GitToolOptions = {}) {
+    super();
+    this.workspaceRoot = options.workspaceRoot || process.cwd();
+  }
+
   async execute(input: Record<string, unknown>): Promise<ToolResult> {
     const staged = input.staged as boolean | undefined;
     const args = staged ? ["diff", "--staged", "--"] : ["diff", "--"];
-    const res = await execFileDirect("git", args, { timeoutMs: 10000 });
+    const res = await execFileDirect("git", args, { cwd: this.workspaceRoot, timeoutMs: 10000 });
     if (res.exitCode !== 0) {
       if (res.stderr.includes("not a git repository")) {
         return { ok: true, content: "Notice: Current workspace is not a git repository." };
@@ -63,7 +81,7 @@ export class GitLogTool extends BaseTool {
   readonly name = "git_log";
   readonly description = "View recent commit history (last N commits).";
   readonly zodSchema = z.object({
-    count: z.number().int().positive().optional(),
+    count: z.coerce.number().int().positive().optional(),
   });
   readonly inputSchema = {
     type: "object",
@@ -75,9 +93,16 @@ export class GitLogTool extends BaseTool {
     },
   };
 
+  public workspaceRoot: string;
+
+  constructor(options: GitToolOptions = {}) {
+    super();
+    this.workspaceRoot = options.workspaceRoot || process.cwd();
+  }
+
   async execute(input: Record<string, unknown>): Promise<ToolResult> {
     const count = (input.count as number) || 5;
-    const res = await execFileDirect("git", ["log", "-n", String(count), "--oneline", "--"], { timeoutMs: 10000 });
+    const res = await execFileDirect("git", ["log", "-n", String(count), "--oneline", "--"], { cwd: this.workspaceRoot, timeoutMs: 10000 });
     if (res.exitCode !== 0) {
       if (res.stderr.includes("not a git repository") || res.stderr.includes("does not have any commits")) {
         return { ok: true, content: "Notice: Workspace has no git commits yet." };

@@ -72,6 +72,30 @@ export const sessionCommands: SlashCommand[] = [
         const raw = fs.readFileSync(sessionPath, "utf-8");
         const msgs = JSON.parse(raw);
         ctx.sessionMemory.setMessages(msgs);
+
+        if (ctx.setFeed && Array.isArray(msgs)) {
+          const feedItems = msgs
+            .filter((m: any) => m.role === "user" || m.role === "assistant")
+            .map((m: any, idx: number) => {
+              let text = "";
+              if (typeof m.content === "string") {
+                text = m.content;
+              } else if (Array.isArray(m.content)) {
+                text = m.content
+                  .filter((b: any) => b.type === "text")
+                  .map((b: any) => b.text)
+                  .join("\n");
+              }
+              return {
+                id: `resumed-${idx}-${Date.now()}`,
+                type: m.role as "user" | "assistant",
+                text,
+              };
+            })
+            .filter((item: any) => item.text.trim().length > 0);
+          ctx.setFeed(feedItems);
+        }
+
         return { output: `Resumed session '${name}' (${msgs.length} messages loaded)` };
       } catch (err) {
         return { output: `Error loading session '${name}': ${(err as Error).message}` };

@@ -19,7 +19,13 @@ export class CodeBlockStore {
   public addBlock(lang: string, code: string): void {
     const trimmed = code.trim();
     if (!trimmed) return;
-    this.blocks.push({ lang: lang || "code", code: trimmed });
+    const cleanLang = lang || "code";
+    const last = this.blocks[this.blocks.length - 1];
+    if (last && last.lang === cleanLang && (last.code === trimmed || trimmed.startsWith(last.code))) {
+      last.code = trimmed;
+      return;
+    }
+    this.blocks.push({ lang: cleanLang, code: trimmed });
     if (this.blocks.length > 30) {
       this.blocks = this.blocks.slice(this.blocks.length - 30);
     }

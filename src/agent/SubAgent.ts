@@ -35,6 +35,7 @@ export class SubAgent {
       model: this.model,
       maxTurns,
       disableSubAgent: true,
+      silent: options.silent ?? false,
       autoApprove: options.autoApprove ?? true,
       workspaceRoot: options.workspaceRoot || process.cwd(),
     });
@@ -42,7 +43,7 @@ export class SubAgent {
     const messages: Message[] = [
       {
         role: "system",
-        content: `${buildBaseSystemPrompt(options.workspaceRoot || process.cwd())}\n\nSpecialized Goal: You are running as an autonomous sub-agent. Focus strictly on achieving the assigned sub-task and report key findings concisely.`,
+        content: `${buildBaseSystemPrompt(options.workspaceRoot || process.cwd())}\n\nSpecialized Goal: You are running as an autonomous sub-agent with direct access to file inspection, editing, search, and git tools. Focus strictly on achieving the assigned sub-task and report key findings concisely. Do not attempt to delegate tasks.`,
       },
       {
         role: "user",

@@ -105,7 +105,7 @@ export class McpClientManager {
         });
 
         const client = new Client(
-          { name: "homogenous-cli", version: "4.3.0" },
+          { name: "homogenous-cli", version: "4.3.1" },
           { capabilities: {} }
         );
 
